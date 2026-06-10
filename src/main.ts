@@ -3,48 +3,69 @@ import "./styles/components.css";
 import "./styles/app.css";
 import { initSquircle } from "./squircle";
 import { Simulation, type RGB, type SimColors } from "./sim";
-import { models, findModel } from "./models";
+import { models, findModel, getParam, type RDModel } from "./models";
 
 const MATRIX_TILE_RES = 128;
 const SINGLE_TILE_RES = 384;
 const GRID_CHOICES = [6, 8, 10];
-const SPEED_CHOICES = [8, 16, 32];
+const SPEED_CHOICES = [1, 2, 4];
 const START_YEAR = 2026;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const fmt = (v: number) => v.toFixed(4);
 
-function parseNum(s: string | null, fallback: number): number {
-  if (s === null) return fallback;
+function fmt(v: number): string {
+  const a = Math.abs(v);
+  if (a < 1) return v.toFixed(4);
+  if (a < 100) return v.toFixed(3);
+  return v.toFixed(1);
+}
+
+function parseNum(s: string | null | undefined, fallback: number): number {
+  if (s === null || s === undefined || s === "") return fallback;
   const v = Number(s);
   return Number.isFinite(v) ? v : fallback;
 }
 
-// ===== URL から初期状態を読む =====
-const initialParams = new URLSearchParams(location.search);
-const model = findModel(initialParams.get("model"));
-const xAxis = model.xAxis;
-const yAxis = model.yAxis;
+// ===== 状態 =====
+const params = new URLSearchParams(location.search);
+const model: RDModel = findModel(params.get("m"));
 
-let view: "matrix" | "single" = initialParams.get("view") === "single" ? "single" : "matrix";
-let grid = GRID_CHOICES.includes(Number(initialParams.get("grid"))) ? Number(initialParams.get("grid")) : 8;
-let speed = SPEED_CHOICES.includes(Number(initialParams.get("speed"))) ? Number(initialParams.get("speed")) : 16;
-let paused = false;
-
-function rangeFromParams(p: URLSearchParams, key: string, axis: typeof xAxis): [number, number] {
-  let lo = clamp(parseNum(p.get(`${key}min`), axis.defaultRange[0]), axis.min, axis.max);
-  let hi = clamp(parseNum(p.get(`${key}max`), axis.defaultRange[1]), axis.min, axis.max);
-  if (hi - lo < axis.step) [lo, hi] = axis.defaultRange;
-  return [lo, hi];
+function axisKeyFrom(qs: string, fallback: string): string {
+  const k = params.get(qs);
+  if (k && model.params.some((p) => p.key === k && p.axisEligible)) return k;
+  return fallback;
 }
 
-let xRange = rangeFromParams(initialParams, xAxis.key, xAxis);
-let yRange = rangeFromParams(initialParams, yAxis.key, yAxis);
-let xVal = clamp(parseNum(initialParams.get(xAxis.key), xAxis.defaultValue), xAxis.min, xAxis.max);
-let yVal = clamp(parseNum(initialParams.get(yAxis.key), yAxis.defaultValue), yAxis.min, yAxis.max);
+let xKey = axisKeyFrom("x", model.defaultXKey);
+let yKey = axisKeyFrom("y", model.defaultYKey);
+if (xKey === yKey) {
+  // 重複したら別の軸候補へ
+  const alt = model.params.find((p) => p.axisEligible && p.key !== xKey);
+  yKey = alt ? alt.key : yKey;
+}
+
+function parseRange(qs: string, def: [number, number]): [number, number] {
+  const raw = params.get(qs);
+  if (!raw) return [...def];
+  const [a, b] = raw.split(",").map(Number);
+  if (Number.isFinite(a) && Number.isFinite(b) && b > a) return [a, b];
+  return [...def];
+}
+
+let xRange = parseRange("xr", getParam(model, xKey).axisRange);
+let yRange = parseRange("yr", getParam(model, yKey).axisRange);
+
+const values: Record<string, number> = {};
+for (const p of model.params) {
+  values[p.key] = clamp(parseNum(params.get(`p_${p.key}`), p.default), p.min, p.max);
+}
+
+let view: "matrix" | "single" = params.get("v") === "single" ? "single" : "matrix";
+let grid = GRID_CHOICES.includes(Number(params.get("g"))) ? Number(params.get("g")) : 8;
+let speed = SPEED_CHOICES.includes(Number(params.get("s"))) ? Number(params.get("s")) : 2;
+let paused = false;
 
 // ===== DOM =====
 const viewMatrix = $("view-matrix");
@@ -59,15 +80,11 @@ const tooltip = $("matrix-tooltip");
 const xTicks = $("x-ticks");
 const yTicks = $("y-ticks");
 const singleParams = $("single-params");
+const paramControls = $("param-controls");
+const xAxisLabel = $("x-axis-label");
+const yAxisLabel = $("y-axis-label");
 
-// 軸まわりのラベルをモデル定義から流し込む
-$("x-axis-label").textContent = xAxis.label;
-$("y-axis-label").textContent = yAxis.label;
-$("x-range-label").textContent = `${xAxis.label} の範囲(横軸)`;
-$("y-range-label").textContent = `${yAxis.label} の範囲(縦軸)`;
-$("x-param-label").textContent = xAxis.label;
-$("y-param-label").textContent = yAxis.label;
-
+// ===== モデル選択 =====
 const modelSelect = $<HTMLSelectElement>("model-select");
 for (const m of models) {
   const opt = document.createElement("option");
@@ -77,31 +94,200 @@ for (const m of models) {
 }
 modelSelect.value = model.id;
 modelSelect.addEventListener("change", () => {
+  // モデルはパラメータもシェーダも別物なのでリロードで作り直す
   const url = new URL(location.href);
   url.search = "";
-  url.searchParams.set("model", modelSelect.value);
-  location.href = url.toString(); // モデル切替はシェーダ再構築が必要なのでリロードする
+  url.searchParams.set("m", modelSelect.value);
+  location.href = url.toString();
 });
 
-// ===== テーマ =====
-type Theme = "light" | "auto" | "dark";
-const storedTheme = ((): Theme => {
-  try {
-    const t = localStorage.getItem("rd-theme");
-    return t === "light" || t === "dark" ? t : "auto";
-  } catch {
-    return "auto";
+// ===== モデル情報 (式と解説) =====
+function renderModelInfo() {
+  const info = $("model-info");
+  info.replaceChildren();
+  for (const eq of model.equations) {
+    const e = document.createElement("div");
+    e.className = "model-info__eq";
+    e.textContent = eq;
+    info.appendChild(e);
   }
-})();
+  const desc = document.createElement("p");
+  desc.className = "model-info__desc";
+  desc.textContent = model.description;
+  info.appendChild(desc);
+  const sp = document.createElement("p");
+  sp.className = "model-info__desc model-info__desc--sub";
+  sp.textContent = model.speciesNote;
+  info.appendChild(sp);
+}
 
-function applyTheme(t: Theme) {
-  if (t === "auto") document.documentElement.removeAttribute("data-theme");
-  else document.documentElement.setAttribute("data-theme", t);
-  try {
-    if (t === "auto") localStorage.removeItem("rd-theme");
-    else localStorage.setItem("rd-theme", t);
-  } catch {}
-  requestAnimationFrame(refreshColors);
+// ===== 軸セレクタ =====
+const xAxisSelect = $<HTMLSelectElement>("x-axis-select");
+const yAxisSelect = $<HTMLSelectElement>("y-axis-select");
+
+function fillAxisSelect(sel: HTMLSelectElement, selectedKey: string) {
+  sel.replaceChildren();
+  for (const p of model.params) {
+    if (!p.axisEligible) continue;
+    const opt = document.createElement("option");
+    opt.value = p.key;
+    opt.textContent = `${p.label} (${p.symbol})`;
+    sel.appendChild(opt);
+  }
+  sel.value = selectedKey;
+}
+
+function onAxisChange(which: "x" | "y", newKey: string) {
+  if (which === "x") {
+    if (newKey === yKey) yKey = xKey; // 入れ替え
+    xKey = newKey;
+  } else {
+    if (newKey === xKey) xKey = yKey;
+    yKey = newKey;
+  }
+  xRange = [...getParam(model, xKey).axisRange];
+  yRange = [...getParam(model, yKey).axisRange];
+  fillAxisSelect(xAxisSelect, xKey);
+  fillAxisSelect(yAxisSelect, yKey);
+  renderParamControls();
+  renderTicks();
+  updateAxisLabels();
+  pushToSims();
+  matrixSim?.seed();
+  updateUrl();
+}
+
+xAxisSelect.addEventListener("change", () => onAxisChange("x", xAxisSelect.value));
+yAxisSelect.addEventListener("change", () => onAxisChange("y", yAxisSelect.value));
+
+function updateAxisLabels() {
+  xAxisLabel.textContent = `${getParam(model, xKey).label} (${getParam(model, xKey).symbol})`;
+  yAxisLabel.textContent = `${getParam(model, yKey).label} (${getParam(model, yKey).symbol})`;
+}
+
+// ===== パラメータコントロール (動的生成) =====
+function makeControlGroup(): HTMLDivElement {
+  const g = document.createElement("div");
+  g.className = "control-group";
+  return g;
+}
+
+function renderParamControls() {
+  paramControls.replaceChildren();
+  for (const p of model.params) {
+    const isAxis = p.key === xKey || p.key === yKey;
+    const asRange = view === "matrix" && isAxis;
+    const g = makeControlGroup();
+
+    const label = document.createElement("span");
+    label.className = "control-label";
+    if (asRange) {
+      const which = p.key === xKey ? "横軸 X" : "縦軸 Y";
+      label.innerHTML = `${p.label} <span class="control-sym">${p.symbol}</span> <span class="control-axis-tag">${which}</span>`;
+    } else {
+      label.innerHTML = `${p.label} <span class="control-sym">${p.symbol}</span>`;
+    }
+    g.appendChild(label);
+
+    if (asRange) {
+      const range = p.key === xKey ? xRange : yRange;
+      const row = document.createElement("div");
+      row.className = "range-row";
+      const mkNum = (val: number, isMin: boolean) => {
+        const inp = document.createElement("input");
+        inp.type = "number";
+        inp.className = "input input--num";
+        inp.inputMode = "decimal";
+        inp.min = String(p.min);
+        inp.max = String(p.max);
+        inp.step = String(p.step);
+        inp.value = String(val);
+        inp.setAttribute("aria-label", `${p.label} ${isMin ? "最小値" : "最大値"}`);
+        inp.addEventListener("change", () => onRangeChange(p.key));
+        return inp;
+      };
+      const minInput = mkNum(range[0], true);
+      const maxInput = mkNum(range[1], false);
+      const sep = document.createElement("span");
+      sep.className = "range-row__sep";
+      sep.textContent = "–";
+      row.append(minInput, sep, maxInput);
+      g.appendChild(row);
+      g.dataset.rangeKey = p.key;
+    } else {
+      const row = document.createElement("div");
+      row.className = "slider-row";
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = String(p.min);
+      slider.max = String(p.max);
+      slider.step = String(p.step);
+      slider.value = String(values[p.key]);
+      slider.setAttribute("aria-label", `${p.label} スライダー`);
+      const num = document.createElement("input");
+      num.type = "number";
+      num.className = "input input--num";
+      num.inputMode = "decimal";
+      num.min = String(p.min);
+      num.max = String(p.max);
+      num.step = String(p.step);
+      num.value = String(values[p.key]);
+      slider.addEventListener("input", () => {
+        values[p.key] = parseNum(slider.value, values[p.key]);
+        num.value = slider.value;
+        onValueChange();
+      });
+      num.addEventListener("change", () => {
+        const v = clamp(parseNum(num.value, values[p.key]), p.min, p.max);
+        values[p.key] = v;
+        num.value = String(v);
+        slider.value = String(v);
+        onValueChange();
+      });
+      row.append(slider, num);
+      g.appendChild(row);
+    }
+
+    const desc = document.createElement("p");
+    desc.className = "control-desc";
+    desc.textContent = p.description;
+    g.appendChild(desc);
+
+    paramControls.appendChild(g);
+  }
+}
+
+function readRangeInputs(key: string): [number, number] {
+  const g = paramControls.querySelector<HTMLElement>(`[data-range-key="${key}"]`);
+  const inputs = g?.querySelectorAll<HTMLInputElement>(".input--num");
+  if (!inputs || inputs.length < 2) return key === xKey ? xRange : yRange;
+  return [Number(inputs[0].value), Number(inputs[1].value)];
+}
+
+function onRangeChange(key: string) {
+  const p = getParam(model, key);
+  let [lo, hi] = readRangeInputs(key);
+  lo = clamp(parseNum(String(lo), p.axisRange[0]), p.min, p.max);
+  hi = clamp(parseNum(String(hi), p.axisRange[1]), p.min, p.max);
+  if (hi - lo < p.step) hi = clamp(lo + p.step, p.min, p.max);
+  if (key === xKey) xRange = [lo, hi];
+  else yRange = [lo, hi];
+  // 入力欄を正規化後の値に同期
+  const g = paramControls.querySelector<HTMLElement>(`[data-range-key="${key}"]`);
+  const inputs = g?.querySelectorAll<HTMLInputElement>(".input--num");
+  if (inputs && inputs.length >= 2) {
+    inputs[0].value = String(lo);
+    inputs[1].value = String(hi);
+  }
+  pushToSims();
+  matrixSim?.seed();
+  renderTicks();
+  updateUrl();
+}
+
+function onValueChange() {
+  pushToSims();
+  updateUrl();
 }
 
 // ===== シミュレーション =====
@@ -109,10 +295,11 @@ let matrixSim: Simulation | null = null;
 let singleSim: Simulation | null = null;
 
 try {
-  matrixSim = new Simulation(matrixCanvas, model, grid, grid, MATRIX_TILE_RES);
-  singleSim = new Simulation(singleCanvas, model, 1, 1, SINGLE_TILE_RES);
-  matrixSim.setRanges(xRange[0], xRange[1], yRange[0], yRange[1]);
-  singleSim.setRanges(xVal, xVal, yVal, yVal);
+  const rs = model.resScale ?? 1;
+  const matrixRes = Math.max(32, Math.round(MATRIX_TILE_RES * rs));
+  const singleRes = Math.max(96, Math.round(SINGLE_TILE_RES * rs));
+  matrixSim = new Simulation(matrixCanvas, model, grid, grid, matrixRes);
+  singleSim = new Simulation(singleCanvas, model, 1, 1, singleRes);
 } catch (e) {
   viewMatrix.hidden = true;
   viewSingle.hidden = true;
@@ -121,6 +308,20 @@ try {
   $("error-message").textContent = e instanceof Error ? e.message : String(e);
 }
 
+function pushToSims() {
+  if (matrixSim) {
+    matrixSim.setAxisKeys(xKey, yKey);
+    matrixSim.setRanges(xRange[0], xRange[1], yRange[0], yRange[1]);
+    for (const p of model.params) matrixSim.setFixed(p.key, values[p.key]);
+  }
+  if (singleSim) {
+    singleSim.setAxisKeys(xKey, yKey);
+    singleSim.setRanges(values[xKey], values[xKey], values[yKey], values[yKey]);
+    for (const p of model.params) singleSim.setFixed(p.key, values[p.key]);
+  }
+}
+
+// ===== 色 =====
 function cssRGB(varName: string): RGB {
   const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
   let m = /^#([0-9a-f]{6})$/i.exec(v);
@@ -144,29 +345,45 @@ function refreshColors() {
   matrixSim?.setColors(colors);
   singleSim?.setColors(colors);
 }
-
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => requestAnimationFrame(refreshColors));
+
+// ===== テーマ =====
+type Theme = "light" | "auto" | "dark";
+const storedTheme = ((): Theme => {
+  try {
+    const t = localStorage.getItem("rd-theme");
+    return t === "light" || t === "dark" ? t : "auto";
+  } catch {
+    return "auto";
+  }
+})();
+
+function applyTheme(t: Theme) {
+  if (t === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", t);
+  try {
+    if (t === "auto") localStorage.removeItem("rd-theme");
+    else localStorage.setItem("rd-theme", t);
+  } catch {}
+  requestAnimationFrame(refreshColors);
+}
 
 // ===== URL 同期 =====
 let urlTimer: number | undefined;
-
 function buildUrl(): string {
   const p = new URLSearchParams();
-  if (models.length > 1) p.set("model", model.id);
-  if (view === "single") {
-    p.set("view", "single");
-    p.set(xAxis.key, String(xVal));
-    p.set(yAxis.key, String(yVal));
-  }
-  if (grid !== 8) p.set("grid", String(grid));
-  if (speed !== 16) p.set("speed", String(speed));
-  if (xRange[0] !== xAxis.defaultRange[0] || xRange[1] !== xAxis.defaultRange[1]) {
-    p.set(`${xAxis.key}min`, String(xRange[0]));
-    p.set(`${xAxis.key}max`, String(xRange[1]));
-  }
-  if (yRange[0] !== yAxis.defaultRange[0] || yRange[1] !== yAxis.defaultRange[1]) {
-    p.set(`${yAxis.key}min`, String(yRange[0]));
-    p.set(`${yAxis.key}max`, String(yRange[1]));
+  if (models.length > 1) p.set("m", model.id);
+  if (view === "single") p.set("v", "single");
+  if (xKey !== model.defaultXKey) p.set("x", xKey);
+  if (yKey !== model.defaultYKey) p.set("y", yKey);
+  const dx = getParam(model, xKey).axisRange;
+  const dy = getParam(model, yKey).axisRange;
+  if (xRange[0] !== dx[0] || xRange[1] !== dx[1]) p.set("xr", `${xRange[0]},${xRange[1]}`);
+  if (yRange[0] !== dy[0] || yRange[1] !== dy[1]) p.set("yr", `${yRange[0]},${yRange[1]}`);
+  if (grid !== 8) p.set("g", String(grid));
+  if (speed !== 2) p.set("s", String(speed));
+  for (const param of model.params) {
+    if (values[param.key] !== param.default) p.set(`p_${param.key}`, String(values[param.key]));
   }
   const q = p.toString();
   return location.pathname + (q ? `?${q}` : "") + location.hash;
@@ -177,21 +394,19 @@ function updateUrl(push = false) {
   urlTimer = window.setTimeout(() => {
     if (push) history.pushState({ rd: true }, "", buildUrl());
     else history.replaceState(history.state, "", buildUrl());
-  }, 100);
+  }, 120);
 }
 
 // ===== セグメントコントロール =====
 function initSegment(el: HTMLElement, initial: string, onChange: (value: string) => void) {
   const options = [...el.querySelectorAll<HTMLButtonElement>(".segment__option")];
   let active: HTMLButtonElement | null = null;
-
   const move = (btn: HTMLButtonElement) => {
     el.style.setProperty("--thumb-x", `${btn.offsetLeft}px`);
     el.style.setProperty("--thumb-y", `${btn.offsetTop}px`);
     el.style.setProperty("--thumb-w", `${btn.offsetWidth}px`);
     el.style.setProperty("--thumb-h", `${btn.offsetHeight}px`);
   };
-
   const select = (value: string, fire: boolean) => {
     const btn = options.find((o) => o.dataset.value === value) ?? options[0];
     active = btn;
@@ -202,13 +417,9 @@ function initSegment(el: HTMLElement, initial: string, onChange: (value: string)
     move(btn);
     if (fire) onChange(value);
   };
-
   select(initial, false);
   requestAnimationFrame(() => el.classList.add("is-ready"));
-  for (const btn of options) {
-    btn.addEventListener("click", () => select(btn.dataset.value!, true));
-  }
-  // 表示/非表示やフォントロードでレイアウトが変わったら thumb を追従させる
+  for (const btn of options) btn.addEventListener("click", () => select(btn.dataset.value!, true));
   new ResizeObserver(() => active && move(active)).observe(el);
   return { select };
 }
@@ -243,98 +454,6 @@ function renderTicks() {
   }
 }
 
-// ===== 範囲入力 (マトリックス) =====
-const xMin = $<HTMLInputElement>("x-min");
-const xMax = $<HTMLInputElement>("x-max");
-const yMin = $<HTMLInputElement>("y-min");
-const yMax = $<HTMLInputElement>("y-max");
-
-for (const [input, axis] of [
-  [xMin, xAxis], [xMax, xAxis], [yMin, yAxis], [yMax, yAxis],
-] as const) {
-  input.min = String(axis.min);
-  input.max = String(axis.max);
-  input.step = String(axis.step);
-}
-
-function syncRangeInputs() {
-  xMin.value = String(xRange[0]);
-  xMax.value = String(xRange[1]);
-  yMin.value = String(yRange[0]);
-  yMax.value = String(yRange[1]);
-}
-
-function onRangeChange() {
-  let x0 = clamp(parseNum(xMin.value, xRange[0]), xAxis.min, xAxis.max);
-  let x1 = clamp(parseNum(xMax.value, xRange[1]), xAxis.min, xAxis.max);
-  let y0 = clamp(parseNum(yMin.value, yRange[0]), yAxis.min, yAxis.max);
-  let y1 = clamp(parseNum(yMax.value, yRange[1]), yAxis.min, yAxis.max);
-  if (x1 - x0 < xAxis.step) x1 = clamp(x0 + xAxis.step, xAxis.min, xAxis.max);
-  if (y1 - y0 < yAxis.step) y1 = clamp(y0 + yAxis.step, yAxis.min, yAxis.max);
-  xRange = [x0, x1];
-  yRange = [y0, y1];
-  syncRangeInputs();
-  matrixSim?.setRanges(x0, x1, y0, y1);
-  matrixSim?.seed();
-  renderTicks();
-  updateUrl();
-}
-
-for (const input of [xMin, xMax, yMin, yMax]) {
-  input.addEventListener("change", onRangeChange);
-}
-
-// ===== 単体ビューのパラメータ入力 =====
-const xSlider = $<HTMLInputElement>("x-slider");
-const xNumber = $<HTMLInputElement>("x-number");
-const ySlider = $<HTMLInputElement>("y-slider");
-const yNumber = $<HTMLInputElement>("y-number");
-
-for (const [input, axis] of [
-  [xSlider, xAxis], [xNumber, xAxis], [ySlider, yAxis], [yNumber, yAxis],
-] as const) {
-  input.min = String(axis.min);
-  input.max = String(axis.max);
-  input.step = String(axis.step);
-}
-
-function syncSingleControls() {
-  xSlider.value = String(xVal);
-  xNumber.value = String(xVal);
-  ySlider.value = String(yVal);
-  yNumber.value = String(yVal);
-  singleParams.textContent = `${yAxis.key} ${fmt(yVal)} / ${xAxis.key} ${fmt(xVal)}`;
-}
-
-function applySingleParams() {
-  singleSim?.setRanges(xVal, xVal, yVal, yVal);
-  singleParams.textContent = `${yAxis.key} ${fmt(yVal)} / ${xAxis.key} ${fmt(xVal)}`;
-  updateUrl();
-}
-
-xSlider.addEventListener("input", () => {
-  xVal = parseNum(xSlider.value, xVal);
-  xNumber.value = xSlider.value;
-  applySingleParams();
-});
-ySlider.addEventListener("input", () => {
-  yVal = parseNum(ySlider.value, yVal);
-  yNumber.value = ySlider.value;
-  applySingleParams();
-});
-xNumber.addEventListener("change", () => {
-  xVal = clamp(parseNum(xNumber.value, xVal), xAxis.min, xAxis.max);
-  xNumber.value = String(xVal);
-  xSlider.value = String(xVal);
-  applySingleParams();
-});
-yNumber.addEventListener("change", () => {
-  yVal = clamp(parseNum(yNumber.value, yVal), yAxis.min, yAxis.max);
-  yNumber.value = String(yVal);
-  ySlider.value = String(yVal);
-  applySingleParams();
-});
-
 // ===== ビュー切替 =====
 function setMode(mode: "matrix" | "single") {
   document.querySelectorAll<HTMLElement>("[data-only]").forEach((el) => {
@@ -342,21 +461,25 @@ function setMode(mode: "matrix" | "single") {
   });
 }
 
+function paramSummary(): string {
+  return `${getParam(model, yKey).symbol} ${fmt(values[yKey])} / ${getParam(model, xKey).symbol} ${fmt(values[xKey])}`;
+}
+
 function setView(v: "matrix" | "single", push: boolean) {
   view = v;
   viewMatrix.hidden = v !== "matrix";
   viewSingle.hidden = v !== "single";
   setMode(v);
+  renderParamControls(); // 軸パラメータが range↔slider で切り替わる
+  if (v === "single") singleParams.textContent = paramSummary();
   updateUrl(push);
 }
 
 function openSingle(xv: number, yv: number, push: boolean) {
-  // タイル位置からの補間値は浮動小数の端数が乗るので丸めてから使う
-  xVal = Math.round(xv * 1e6) / 1e6;
-  yVal = Math.round(yv * 1e6) / 1e6;
-  singleSim?.setRanges(xVal, xVal, yVal, yVal);
+  values[xKey] = Math.round(xv * 1e6) / 1e6;
+  values[yKey] = Math.round(yv * 1e6) / 1e6;
+  pushToSims();
   singleSim?.seed();
-  syncSingleControls();
   setView("single", push);
 }
 
@@ -364,13 +487,18 @@ $("back-button").addEventListener("click", () => setView("matrix", false));
 
 window.addEventListener("popstate", () => {
   const p = new URLSearchParams(location.search);
-  if (p.get("view") === "single") {
-    const xv = clamp(parseNum(p.get(xAxis.key), xVal), xAxis.min, xAxis.max);
-    const yv = clamp(parseNum(p.get(yAxis.key), yVal), yAxis.min, yAxis.max);
-    openSingle(xv, yv, false);
-  } else {
-    setView("matrix", false);
+  if ((p.get("m") ?? model.id) !== model.id) {
+    location.reload();
+    return;
   }
+  view = p.get("v") === "single" ? "single" : "matrix";
+  if (view === "single") {
+    values[xKey] = clamp(parseNum(p.get(`p_${xKey}`), values[xKey]), getParam(model, xKey).min, getParam(model, xKey).max);
+    values[yKey] = clamp(parseNum(p.get(`p_${yKey}`), values[yKey]), getParam(model, yKey).min, getParam(model, yKey).max);
+    pushToSims();
+    singleSim?.seed();
+  }
+  setView(view, false);
 });
 
 // ===== マトリックスの hover / クリック =====
@@ -399,7 +527,7 @@ matrixWrap.addEventListener("pointermove", (e) => {
   hoverBox.style.height = `${100 / grid}%`;
 
   tooltip.hidden = false;
-  tooltip.textContent = `${yAxis.key} ${fmt(yv)} / ${xAxis.key} ${fmt(xv)}`;
+  tooltip.textContent = `${getParam(model, yKey).symbol} ${fmt(yv)} / ${getParam(model, xKey).symbol} ${fmt(xv)}`;
   const tw = tooltip.offsetWidth;
   const th = tooltip.offsetHeight;
   tooltip.style.left = `${clamp(x + 14, 0, rect.width - tw - 2)}px`;
@@ -419,12 +547,10 @@ matrixWrap.addEventListener("click", (e) => {
 // ===== 単体ビューのブラシ =====
 let drawing = false;
 let lastPos: { x: number; y: number } | null = null;
-
 function brushPos(e: PointerEvent) {
   const rect = singleCanvas.getBoundingClientRect();
   return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
-
 singleCanvas.addEventListener("pointerdown", (e) => {
   drawing = true;
   try {
@@ -457,7 +583,6 @@ for (const ev of ["pointerup", "pointercancel"] as const) {
 $("reseed-button").addEventListener("click", () => {
   (view === "single" ? singleSim : matrixSim)?.seed();
 });
-
 const pauseButton = $<HTMLButtonElement>("pause-button");
 const pauseLabel = $("pause-label");
 pauseButton.addEventListener("click", () => {
@@ -477,24 +602,25 @@ pauseButton.addEventListener("click", () => {
   }
 }
 
-// ===== 初期化の仕上げ =====
-syncRangeInputs();
-syncSingleControls();
+// ===== 初期化 =====
+renderModelInfo();
+fillAxisSelect(xAxisSelect, xKey);
+fillAxisSelect(yAxisSelect, yKey);
+updateAxisLabels();
 renderTicks();
 refreshColors();
+pushToSims();
 if (view === "single") {
-  singleSim?.setRanges(xVal, xVal, yVal, yVal);
-  setView("single", false);
-} else {
-  setView("matrix", false);
+  singleSim?.seed();
 }
+setView(view, false);
 initSquircle();
 
 // ===== メインループ =====
 function frame() {
   const sim = view === "single" ? singleSim : matrixSim;
   if (sim) {
-    if (!paused) sim.step(speed);
+    if (!paused) sim.step((model.stepsBase ?? 8) * speed);
     sim.draw(view === "matrix");
   }
   requestAnimationFrame(frame);

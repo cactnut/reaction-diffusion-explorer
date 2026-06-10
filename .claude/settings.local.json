@@ -6,7 +6,12 @@
       "Bash(npm install *)",
       "Bash(npm run *)",
       "mcp__Claude_Preview__preview_start",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(grep -nE \"define|params|\\\\.map|join|replace|\\\\\\\\\\\\$\\\\{|inject|const.*Glsl|float \\\\$\" /Users/s.kurimoto/Develop/cactnut/reaction-diffusion-explorer/src/sim.ts)",
+      "Bash(python3 -)",
+      "Bash(kill 22401)",
+      "Bash(lsof -ti:5173)",
+      "Bash(xargs kill -9)"
     ]
   }
 }

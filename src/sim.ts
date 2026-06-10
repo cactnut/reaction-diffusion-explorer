@@ -3,10 +3,12 @@ import type { RDModel } from "./models";
 /**
  * タイル分割された反応拡散シミュレーション。
  *
- * 1 枚の float テクスチャを cols×rows のタイルに分割し、各タイルが
- * 軸範囲から線形補間した固有のパラメータ (px, py) を持つ。タイル内は
- * トーラス境界 (wrap) なので隣のタイルへ漏れない。
- * cols=rows=1 にすると単体ビューとしてそのまま使える。
+ * 1 枚の RGBA float テクスチャ (最大 4 成分) を cols×rows のタイルに分割し、各
+ * タイルが軸範囲から線形補間した固有のパラメータを持つ。タイル内はトーラス境界
+ * (wrap) なので隣のタイルへ漏れない。cols=rows=1 で単体ビューとしても使う。
+ *
+ * パラメータは「軸に乗っている 2 つ」(タイル位置から補間) と「固定値の残り」
+ * (uniform) に分かれる。軸の選択を変えると sim / seed シェーダを作り直す。
  */
 
 const VERT = /* glsl */ `#version 300 es
@@ -14,8 +16,23 @@ layout(location = 0) in vec2 aPos;
 void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
 `;
 
-function simFrag(model: RDModel): string {
-  return /* glsl */ `#version 300 es
+/** sim と seed で共通の「タイル位置 → パラメータ」プロローグを生成する */
+function paramPrologue(model: RDModel, xKey: string, yKey: string) {
+  const fixedKeys = model.params.map((p) => p.key).filter((k) => k !== xKey && k !== yKey);
+  const fixedUniforms = fixedKeys.map((k) => `uniform float P_${k};`).join("\n");
+  const decls = model.params
+    .map((p) => {
+      if (p.key === xKey) return `  float ${p.key} = mix(uXRange.x, uXRange.y, fx);`;
+      if (p.key === yKey) return `  float ${p.key} = mix(uYRange.x, uYRange.y, fy);`;
+      return `  float ${p.key} = P_${p.key};`;
+    })
+    .join("\n");
+  return { fixedKeys, fixedUniforms, decls };
+}
+
+function simFrag(model: RDModel, xKey: string, yKey: string): { src: string; fixedKeys: string[] } {
+  const { fixedKeys, fixedUniforms, decls } = paramPrologue(model, xKey, yKey);
+  const src = /* glsl */ `#version 300 es
 precision highp float;
 uniform sampler2D uState;
 uniform ivec2 uGrid;
@@ -23,84 +40,110 @@ uniform int uTileRes;
 uniform vec2 uXRange;
 uniform vec2 uYRange;
 uniform float uDt;
+${fixedUniforms}
 out vec4 outColor;
 
-// タイル内トーラス境界。オフセットは ±1 texel なので +size で必ず正になる
-ivec2 wrapT(ivec2 t, ivec2 origin, int size) {
-  ivec2 local = (t - origin + size) % size;
+ivec2 wrapT(ivec2 tx, ivec2 origin, int size) {
+  ivec2 local = (tx - origin + size) % size;
   return origin + local;
 }
-vec2 st(ivec2 t) { return texelFetch(uState, t, 0).rg; }
+vec4 stt(ivec2 tx) { return texelFetch(uState, tx, 0); }
 
 void main() {
   ivec2 texel = ivec2(gl_FragCoord.xy);
   ivec2 tile = texel / uTileRes;
   ivec2 origin = tile * uTileRes;
 
-  vec2 c = st(texel);
-  vec2 lap = -c
-    + 0.05 * (st(wrapT(texel + ivec2(-1, -1), origin, uTileRes))
-            + st(wrapT(texel + ivec2( 1, -1), origin, uTileRes))
-            + st(wrapT(texel + ivec2(-1,  1), origin, uTileRes))
-            + st(wrapT(texel + ivec2( 1,  1), origin, uTileRes)))
-    + 0.2  * (st(wrapT(texel + ivec2(-1,  0), origin, uTileRes))
-            + st(wrapT(texel + ivec2( 1,  0), origin, uTileRes))
-            + st(wrapT(texel + ivec2( 0, -1), origin, uTileRes))
-            + st(wrapT(texel + ivec2( 0,  1), origin, uTileRes)));
+  vec4 c  = stt(texel);
+  vec4 nN = stt(wrapT(texel + ivec2( 0,  1), origin, uTileRes));
+  vec4 nS = stt(wrapT(texel + ivec2( 0, -1), origin, uTileRes));
+  vec4 nE = stt(wrapT(texel + ivec2( 1,  0), origin, uTileRes));
+  vec4 nW = stt(wrapT(texel + ivec2(-1,  0), origin, uTileRes));
+  vec4 nNE = stt(wrapT(texel + ivec2( 1,  1), origin, uTileRes));
+  vec4 nNW = stt(wrapT(texel + ivec2(-1,  1), origin, uTileRes));
+  vec4 nSE = stt(wrapT(texel + ivec2( 1, -1), origin, uTileRes));
+  vec4 nSW = stt(wrapT(texel + ivec2(-1, -1), origin, uTileRes));
+
+  vec4 lap = -c + 0.2 * (nN + nS + nE + nW) + 0.05 * (nNE + nNW + nSE + nSW);
+  vec4 gx = (nE - nW) * 0.5;
+  vec4 gy = (nN - nS) * 0.5;
 
   vec2 gmax = max(vec2(uGrid) - 1.0, vec2(1.0));
-  float px = mix(uXRange.x, uXRange.y, float(tile.x) / gmax.x);
-  float py = mix(uYRange.x, uYRange.y, float(tile.y) / gmax.y);
+  float fx = float(tile.x) / gmax.x;
+  float fy = float(tile.y) / gmax.y;
+${decls}
 
 ${model.updateGlsl}
 
-  outColor = vec4(next, 0.0, 1.0);
+  outColor = next;
 }
 `;
+  return { src, fixedKeys };
 }
 
-const SEED_FRAG = /* glsl */ `#version 300 es
+function seedFrag(model: RDModel, xKey: string, yKey: string): { src: string; fixedKeys: string[] } {
+  const { fixedKeys, fixedUniforms, decls } = paramPrologue(model, xKey, yKey);
+  const src = /* glsl */ `#version 300 es
 precision highp float;
+uniform ivec2 uGrid;
 uniform int uTileRes;
+uniform vec2 uXRange;
+uniform vec2 uYRange;
 uniform float uSeed;
+${fixedUniforms}
 out vec4 outColor;
 
-float hash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7)) + uSeed * 7.31) * 43758.5453);
-}
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7)) + uSeed * 7.31) * 43758.5453); }
 
 void main() {
   vec2 texel = gl_FragCoord.xy;
   float res = float(uTileRes);
-  vec2 tile = floor(texel / res);
-  vec2 local = texel - tile * res;
-  float r = res * 0.06;
+  vec2 tileF = floor(texel / res);
+  ivec2 tile = ivec2(tileF);
+  vec2 local = texel - tileF * res;
+  vec2 pos = local / res;
+  float dc = length(pos - 0.5) * 2.0;
 
-  // 中央 + タイルごとに位置が変わる 2 点、計 3 つの種を撒く
-  float v = step(length(local - res * 0.5), r);
-  vec2 p1 = res * (0.18 + 0.64 * vec2(hash(tile + 3.7), hash(tile + 11.3)));
-  vec2 p2 = res * (0.18 + 0.64 * vec2(hash(tile + 23.9), hash(tile + 31.1)));
-  v = max(v, step(length(local - p1), r));
-  v = max(v, step(length(local - p2), r));
-  v *= 0.85 + 0.15 * hash(texel);
+  float n1 = hash(texel + 1.7);
+  float n2 = hash(texel + 9.3);
+  float n3 = hash(texel + 27.11);
+  float n4 = hash(texel + 51.9);
+  float t1 = hash(tileF + 3.7);
+  float t2 = hash(tileF + 11.3);
+  float t3 = hash(tileF + 23.9);
+  float t4 = hash(tileF + 41.1);
 
-  outColor = vec4(1.0, v, 0.0, 1.0);
+  vec2 gmax = max(vec2(uGrid) - 1.0, vec2(1.0));
+  float fx = float(tile.x) / gmax.x;
+  float fy = float(tile.y) / gmax.y;
+${decls}
+
+${model.seedGlsl}
+
+  outColor = seed;
 }
 `;
+  return { src, fixedKeys };
+}
 
 const BRUSH_FRAG = /* glsl */ `#version 300 es
 precision highp float;
 uniform sampler2D uState;
 uniform vec2 uPoint;
 uniform float uRadius;
+uniform int uChannel;
+uniform float uValue;
 out vec4 outColor;
 
 void main() {
-  vec2 s = texelFetch(uState, ivec2(gl_FragCoord.xy), 0).rg;
+  vec4 s = texelFetch(uState, ivec2(gl_FragCoord.xy), 0);
   float d = length(gl_FragCoord.xy - uPoint);
-  float m = 1.0 - smoothstep(uRadius * 0.5, uRadius, d);
-  s.g = max(s.g, m * 0.9);
-  outColor = vec4(s, 0.0, 1.0);
+  float m = (1.0 - smoothstep(uRadius * 0.5, uRadius, d)) * uValue;
+  if (uChannel == 0) s.r = max(s.r, m);
+  else if (uChannel == 2) s.b = max(s.b, m);
+  else if (uChannel == 3) s.a = max(s.a, m);
+  else s.g = max(s.g, m);
+  outColor = s;
 }
 `;
 
@@ -120,13 +163,13 @@ out vec4 outColor;
 
 void main() {
   vec2 uv = gl_FragCoord.xy / uCanvas;
-  vec2 s = texture(uState, uv).rg;
+  vec4 s = texture(uState, uv);
 ${model.displayGlsl}
-  vec3 col = mix(uC0, uC1, smoothstep(0.0, 0.45, t));
-  col = mix(col, uC2, smoothstep(0.40, 0.78, t));
-  col = mix(col, uC3, smoothstep(0.72, 1.0, t));
+  float tc = clamp(t, 0.0, 1.0);
+  vec3 col = mix(uC0, uC1, smoothstep(0.0, 0.45, tc));
+  col = mix(col, uC2, smoothstep(0.40, 0.78, tc));
+  col = mix(col, uC3, smoothstep(0.72, 1.0, tc));
 
-  // タイル境界の罫線
   if (uGapPx > 0.0) {
     vec2 tilePx = uCanvas / uGrid;
     vec2 inTile = mod(gl_FragCoord.xy, tilePx);
@@ -146,7 +189,6 @@ interface Program {
 }
 
 export type RGB = [number, number, number];
-
 export interface SimColors {
   stops: [RGB, RGB, RGB, RGB];
   line: RGB;
@@ -169,10 +211,15 @@ export class Simulation {
   private fbos: WebGLFramebuffer[] = [];
   private src = 0;
 
-  private pSim: Program;
-  private pSeed: Program;
+  private pSim!: Program;
+  private pSeed!: Program;
   private pBrush: Program;
   private pDisplay: Program;
+
+  private xKey: string;
+  private yKey: string;
+  private fixedKeys: string[] = [];
+  private fixed: Record<string, number> = {};
 
   private xRange: [number, number];
   private yRange: [number, number];
@@ -193,27 +240,28 @@ export class Simulation {
     this.cols = cols;
     this.rows = rows;
     this.tileRes = tileRes;
-    this.xRange = [...model.xAxis.defaultRange];
-    this.yRange = [...model.yAxis.defaultRange];
+    this.xKey = model.defaultXKey;
+    this.yKey = model.defaultYKey;
+    for (const p of model.params) this.fixed[p.key] = p.default;
+    this.xRange = [...this.axisRange(this.xKey)];
+    this.yRange = [...this.axisRange(this.yKey)];
 
     const gl = canvas.getContext("webgl2", { antialias: false, alpha: false, depth: false, stencil: false });
     if (!gl) throw new Error("このブラウザでは WebGL2 を利用できません。");
     this.gl = gl;
 
-    // float テクスチャへのレンダリング対応を確認 (32F 優先、なければ 16F)
     if (gl.getExtension("EXT_color_buffer_float")) {
-      this.texInternalFormat = gl.RG32F;
+      this.texInternalFormat = gl.RGBA32F;
       this.texType = gl.FLOAT;
       this.filterable = !!gl.getExtension("OES_texture_float_linear");
     } else if (gl.getExtension("EXT_color_buffer_half_float")) {
-      this.texInternalFormat = gl.RG16F;
+      this.texInternalFormat = gl.RGBA16F;
       this.texType = gl.HALF_FLOAT;
-      this.filterable = true; // half float の LINEAR は WebGL2 コア
+      this.filterable = true;
     } else {
       throw new Error("このブラウザ / GPU では float テクスチャへの描画ができません。");
     }
 
-    // フルスクリーン三角形
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     const buf = gl.createBuffer();
@@ -222,9 +270,8 @@ export class Simulation {
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-    this.pSim = this.compile(simFrag(model), ["uState", "uGrid", "uTileRes", "uXRange", "uYRange", "uDt"]);
-    this.pSeed = this.compile(SEED_FRAG, ["uTileRes", "uSeed"]);
-    this.pBrush = this.compile(BRUSH_FRAG, ["uState", "uPoint", "uRadius"]);
+    this.buildPrograms();
+    this.pBrush = this.compile(BRUSH_FRAG, ["uState", "uPoint", "uRadius", "uChannel", "uValue"]);
     this.pDisplay = this.compile(displayFrag(model), [
       "uState", "uGrid", "uCanvas", "uC0", "uC1", "uC2", "uC3", "uLine", "uGapPx",
     ]);
@@ -235,6 +282,19 @@ export class Simulation {
 
   get texWidth() { return this.cols * this.tileRes; }
   get texHeight() { return this.rows * this.tileRes; }
+
+  private axisRange(key: string): [number, number] {
+    return this.model.params.find((x) => x.key === key)!.axisRange;
+  }
+
+  private buildPrograms() {
+    const sim = simFrag(this.model, this.xKey, this.yKey);
+    this.fixedKeys = sim.fixedKeys;
+    const fixedUniforms = sim.fixedKeys.map((k) => `P_${k}`);
+    this.pSim = this.compile(sim.src, ["uState", "uGrid", "uTileRes", "uXRange", "uYRange", "uDt", ...fixedUniforms]);
+    const seed = seedFrag(this.model, this.xKey, this.yKey);
+    this.pSeed = this.compile(seed.src, ["uGrid", "uTileRes", "uXRange", "uYRange", "uSeed", ...fixedUniforms]);
+  }
 
   private compile(fragSrc: string, uniformNames: string[]): Program {
     const gl = this.gl;
@@ -270,7 +330,7 @@ export class Simulation {
     for (let i = 0; i < 2; i++) {
       const tex = gl.createTexture()!;
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, this.texInternalFormat, this.texWidth, this.texHeight, 0, gl.RG, this.texType, null);
+      gl.texImage2D(gl.TEXTURE_2D, 0, this.texInternalFormat, this.texWidth, this.texHeight, 0, gl.RGBA, this.texType, null);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -289,7 +349,6 @@ export class Simulation {
     this.src = 0;
   }
 
-  /** マトリックスの分割数を変更する (テクスチャを作り直して再シード) */
   setGrid(cols: number, rows: number) {
     if (cols === this.cols && rows === this.rows) return;
     this.cols = cols;
@@ -298,38 +357,56 @@ export class Simulation {
     this.seed();
   }
 
-  /** 軸パラメータの範囲を設定する。単体ビューでは min=max で使う */
+  setAxisKeys(xKey: string, yKey: string) {
+    if (xKey === this.xKey && yKey === this.yKey) return;
+    this.xKey = xKey;
+    this.yKey = yKey;
+    this.buildPrograms();
+    this.seed();
+  }
+
   setRanges(x0: number, x1: number, y0: number, y1: number) {
     this.xRange = [x0, x1];
     this.yRange = [y0, y1];
+  }
+
+  setFixed(key: string, value: number) {
+    this.fixed[key] = value;
   }
 
   setColors(colors: SimColors) {
     this.colors = colors;
   }
 
-  /** 初期状態を撒き直す */
+  private setParamUniforms(p: Program) {
+    const gl = this.gl;
+    gl.uniform2i(p.u.uGrid, this.cols, this.rows);
+    gl.uniform1i(p.u.uTileRes, this.tileRes);
+    gl.uniform2f(p.u.uXRange, this.xRange[0], this.xRange[1]);
+    gl.uniform2f(p.u.uYRange, this.yRange[0], this.yRange[1]);
+    for (const k of this.fixedKeys) {
+      const loc = p.u[`P_${k}`];
+      if (loc) gl.uniform1f(loc, this.fixed[k]);
+    }
+  }
+
   seed() {
     const gl = this.gl;
     this.seedCounter++;
+    gl.useProgram(this.pSeed.prog);
+    this.setParamUniforms(this.pSeed);
+    gl.uniform1f(this.pSeed.u.uSeed, this.seedCounter * 0.618);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[this.src]);
     gl.viewport(0, 0, this.texWidth, this.texHeight);
-    gl.useProgram(this.pSeed.prog);
-    gl.uniform1i(this.pSeed.u.uTileRes, this.tileRes);
-    gl.uniform1f(this.pSeed.u.uSeed, this.seedCounter * 0.618);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
-  /** n ステップ進める */
   step(n: number) {
     const gl = this.gl;
     gl.useProgram(this.pSim.prog);
     gl.uniform1i(this.pSim.u.uState, 0);
-    gl.uniform2i(this.pSim.u.uGrid, this.cols, this.rows);
-    gl.uniform1i(this.pSim.u.uTileRes, this.tileRes);
-    gl.uniform2f(this.pSim.u.uXRange, this.xRange[0], this.xRange[1]);
-    gl.uniform2f(this.pSim.u.uYRange, this.yRange[0], this.yRange[1]);
     gl.uniform1f(this.pSim.u.uDt, this.model.dt);
+    this.setParamUniforms(this.pSim);
     gl.viewport(0, 0, this.texWidth, this.texHeight);
     gl.activeTexture(gl.TEXTURE0);
     for (let i = 0; i < n; i++) {
@@ -341,7 +418,6 @@ export class Simulation {
     }
   }
 
-  /** CSS ピクセル座標 (canvas 左上原点) に化学種 V を描き足す */
   brush(cssX: number, cssY: number, radiusTexels = 6) {
     const gl = this.gl;
     const rect = this.canvas.getBoundingClientRect();
@@ -354,6 +430,8 @@ export class Simulation {
     gl.uniform1i(this.pBrush.u.uState, 0);
     gl.uniform2f(this.pBrush.u.uPoint, tx, ty);
     gl.uniform1f(this.pBrush.u.uRadius, radiusTexels);
+    gl.uniform1i(this.pBrush.u.uChannel, this.model.brushChannel ?? 1);
+    gl.uniform1f(this.pBrush.u.uValue, this.model.brushValue ?? 0.9);
     gl.viewport(0, 0, this.texWidth, this.texHeight);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[dst]);
     gl.activeTexture(gl.TEXTURE0);
@@ -362,7 +440,6 @@ export class Simulation {
     this.src = dst;
   }
 
-  /** 現在の状態を canvas に描画する */
   draw(showGrid: boolean) {
     const gl = this.gl;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
