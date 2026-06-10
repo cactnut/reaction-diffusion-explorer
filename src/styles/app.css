@@ -167,6 +167,16 @@
   row-gap: var(--space-1);
 }
 
+/* デスクトップ (固定レイアウト) ではキャンバスが高さ基準で算出され、1fr のキャンバス列に
+   左寄せされて右に余白が出る。3 列目を auto にしてグリッドを内容幅まで縮め、フレックス親
+   (.view-card__canvas) の中で軸ごと左右中央に置く。モバイルは 1fr のまま幅いっぱい */
+@media (min-width: 1024px) and (min-height: 480px) {
+  .matrix {
+    grid-template-columns: auto auto auto;
+    align-self: center;
+  }
+}
+
 .matrix__axis {
   font-size: var(--text-xs);
   color: var(--muted);
@@ -174,6 +184,9 @@
 .matrix__axis--y {
   grid-area: ylab;
   writing-mode: vertical-rl;
+  /* sideways: 漢字も英字と同じく 90° 回転で並べる。これがないと CJK だけ正立し、
+     rotate(180deg) で上下逆になる。英字 (feed) の向きは mixed と変わらない */
+  text-orientation: sideways;
   transform: rotate(180deg);
   align-self: center;
 }

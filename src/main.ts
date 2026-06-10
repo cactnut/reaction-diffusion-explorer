@@ -509,7 +509,6 @@ function renderTicks() {
 const desktopLayout = matchMedia("(min-width: 1024px) and (min-height: 480px)");
 const stageEl = document.querySelector<HTMLElement>(".main__stage")!;
 const matrixEl = document.querySelector<HTMLElement>(".matrix")!;
-const matrixHint = viewMatrix.querySelector<HTMLElement>(".view-card__hint")!;
 const matrixCanvasArea = viewMatrix.querySelector<HTMLElement>(".view-card__canvas")!;
 const singleWrap = viewSingle.querySelector<HTMLElement>(".single__canvas-wrap")!;
 const singleCanvasArea = viewSingle.querySelector<HTMLElement>(".view-card__canvas")!;
@@ -527,8 +526,11 @@ function fitCanvases() {
     const availH = matrixCanvasArea.clientHeight;
     // 目盛・軸ラベルの高さ (キャンバスサイズに依存しない)
     const chromeV = matrixEl.offsetHeight - matrixWrap.offsetHeight;
-    // 幅は軸ラベル・目盛の右端からカード右端 (= ヒント右端) まで
-    const availW = matrixHint.getBoundingClientRect().right - matrixWrap.getBoundingClientRect().left;
+    // 行ラベル・目盛が左に占める幅 (= matrix 左端から canvas-wrap 左端まで)。
+    // 中央寄せ (align-self) で matrix 全体が動いてもこの相対差は不変なので、
+    // availW が中央寄せに依存せず安定する (サイズ↔位置のループを避ける)
+    const yAxisW = matrixWrap.getBoundingClientRect().left - matrixEl.getBoundingClientRect().left;
+    const availW = matrixCanvasArea.clientWidth - yAxisW;
     // --matrix-size は幅。高さは aspect-ratio (gridX/gridY) で決まる
     const size = Math.max(120, Math.floor(Math.min(availW, (availH - chromeV) * (gridX / gridY))));
     matrixEl.style.setProperty("--matrix-size", `${size}px`);
