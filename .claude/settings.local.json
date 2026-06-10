@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/s.kurimoto/Develop/cactnut/reaction-diffusion-explorer log --oneline -5)",
+      "Bash(git -C /Users/s.kurimoto/Develop/cactnut/reaction-diffusion-explorer remote -v)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(git add *)"
+    ]
+  }
+}

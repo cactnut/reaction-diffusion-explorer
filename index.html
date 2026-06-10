@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reaction-Diffusion Explorer</title>
+  <meta name="description" content="Gray-Scott モデルのパラメータ空間をマトリックス表示して、面白い模様が生まれる組み合わせを探すツール">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <script>
+    // ちらつき防止: CSS 適用前に保存済みテーマを反映する
+    try {
+      var t = localStorage.getItem("rd-theme");
+      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <div class="page">
+    <header class="header container-app">
+      <div class="header__titles">
+        <h1 class="header__title">Reaction-Diffusion Explorer</h1>
+        <p class="header__subtitle">パラメータ空間を眺めて、面白い模様が生まれる組み合わせを探す</p>
+      </div>
+      <div class="segment" id="theme-segment" role="group" aria-label="テーマ"
+           data-squircle data-squircle-radius="999" data-squircle-stroke>
+        <span class="segment__thumb" data-squircle data-squircle-radius="999" aria-hidden="true"></span>
+        <button type="button" class="segment__option" data-value="light">Light</button>
+        <button type="button" class="segment__option segment__option--active" data-value="auto">Auto</button>
+        <button type="button" class="segment__option" data-value="dark">Dark</button>
+      </div>
+    </header>
+
+    <main class="main container-app">
+      <div class="main__stage">
+        <!-- マトリックスビュー -->
+        <section class="view" id="view-matrix" aria-label="パラメータマトリックス">
+          <div class="card view-card" data-squircle data-squircle-radius="12">
+            <div class="matrix">
+              <span class="matrix__axis matrix__axis--y" id="y-axis-label">feed rate F</span>
+              <div class="matrix__yticks" id="y-ticks" aria-hidden="true"></div>
+              <div class="matrix__canvas-wrap" id="matrix-wrap">
+                <canvas id="matrix-canvas" aria-label="Gray-Scott モデルのパラメータマトリックス"></canvas>
+                <div class="matrix__hover" id="matrix-hover" hidden></div>
+                <div class="matrix__tooltip" id="matrix-tooltip" hidden aria-hidden="true"
+                     data-squircle data-squircle-radius="8" data-squircle-stroke></div>
+              </div>
+              <div class="matrix__xticks" id="x-ticks" aria-hidden="true"></div>
+              <span class="matrix__axis matrix__axis--x" id="x-axis-label">kill rate k</span>
+            </div>
+            <p class="view-card__hint">タイルをクリックすると、そのパラメータで拡大表示します</p>
+          </div>
+        </section>
+
+        <!-- 単体ビュー -->
+        <section class="view" id="view-single" hidden aria-label="単体シミュレーション">
+          <div class="card view-card" data-squircle data-squircle-radius="12">
+            <div class="view-card__bar">
+              <button type="button" id="back-button" class="button button--ghost"
+                      data-squircle data-squircle-radius="8">← マトリックスへ戻る</button>
+              <span class="view-card__params" id="single-params"></span>
+            </div>
+            <div class="single__canvas-wrap">
+              <canvas id="single-canvas" aria-label="Gray-Scott モデルのシミュレーション"></canvas>
+            </div>
+            <p class="view-card__hint">キャンバスをドラッグすると化学種 V を描き足せます</p>
+          </div>
+        </section>
+
+        <!-- WebGL2 が使えない場合 -->
+        <section class="view" id="view-error" hidden>
+          <div class="card view-card" data-squircle data-squircle-radius="12">
+            <h2 class="error__title">シミュレーションを開始できませんでした</h2>
+            <p class="error__body" id="error-message">このブラウザでは WebGL2 を利用できません。</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- コントロール -->
+      <aside class="card controls" data-squircle data-squircle-radius="12" aria-label="コントロール">
+        <div class="control-group">
+          <label class="control-label" for="model-select">モデル</label>
+          <select id="model-select" class="input"></select>
+        </div>
+
+        <div class="control-group" data-only="matrix">
+          <span class="control-label" id="y-range-label">feed rate F の範囲(縦軸)</span>
+          <div class="range-row">
+            <input id="y-min" class="input input--num" type="number" inputmode="decimal" aria-label="F 最小値">
+            <span class="range-row__sep">–</span>
+            <input id="y-max" class="input input--num" type="number" inputmode="decimal" aria-label="F 最大値">
+          </div>
+        </div>
+
+        <div class="control-group" data-only="matrix">
+          <span class="control-label" id="x-range-label">kill rate k の範囲(横軸)</span>
+          <div class="range-row">
+            <input id="x-min" class="input input--num" type="number" inputmode="decimal" aria-label="k 最小値">
+            <span class="range-row__sep">–</span>
+            <input id="x-max" class="input input--num" type="number" inputmode="decimal" aria-label="k 最大値">
+          </div>
+        </div>
+
+        <div class="control-group" data-only="matrix">
+          <span class="control-label">分割数</span>
+          <div class="segment" id="grid-segment" role="group" aria-label="分割数"
+               data-squircle data-squircle-radius="999" data-squircle-stroke>
+            <span class="segment__thumb" data-squircle data-squircle-radius="999" aria-hidden="true"></span>
+            <button type="button" class="segment__option" data-value="6">6×6</button>
+            <button type="button" class="segment__option segment__option--active" data-value="8">8×8</button>
+            <button type="button" class="segment__option" data-value="10">10×10</button>
+          </div>
+        </div>
+
+        <div class="control-group" data-only="single">
+          <label class="control-label" for="y-number" id="y-param-label">feed rate F</label>
+          <div class="slider-row">
+            <input id="y-slider" type="range" aria-label="F スライダー">
+            <input id="y-number" class="input input--num" type="number" inputmode="decimal">
+          </div>
+        </div>
+
+        <div class="control-group" data-only="single">
+          <label class="control-label" for="x-number" id="x-param-label">kill rate k</label>
+          <div class="slider-row">
+            <input id="x-slider" type="range" aria-label="k スライダー">
+            <input id="x-number" class="input input--num" type="number" inputmode="decimal">
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">速度</span>
+          <div class="segment" id="speed-segment" role="group" aria-label="速度"
+               data-squircle data-squircle-radius="999" data-squircle-stroke>
+            <span class="segment__thumb" data-squircle data-squircle-radius="999" aria-hidden="true"></span>
+            <button type="button" class="segment__option" data-value="8">×1</button>
+            <button type="button" class="segment__option segment__option--active" data-value="16">×2</button>
+            <button type="button" class="segment__option" data-value="32">×4</button>
+          </div>
+        </div>
+
+        <div class="controls__actions">
+          <button type="button" id="reseed-button" class="button button--primary"
+                  data-squircle data-squircle-radius="8">再シード</button>
+          <!-- ラベルは span に持たせる (textContent 直書きだと squircle の SVG 枠線まで消える) -->
+          <button type="button" id="pause-button" class="button button--secondary" aria-pressed="false"
+                  data-squircle data-squircle-radius="8" data-squircle-stroke><span id="pause-label">一時停止</span></button>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="footer">
+      <p>Gray-Scott reaction-diffusion explorer</p>
+      <a href="https://github.com/cactnut/reaction-diffusion-explorer">GitHub</a>
+      <small class="footer__copyright">
+        © <span class="footer__years" hidden><span data-year-range></span> </span>cactnut
+      </small>
+    </footer>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
