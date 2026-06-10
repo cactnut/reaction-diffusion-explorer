@@ -62,7 +62,16 @@ for (const p of model.params) {
 }
 
 let view: "matrix" | "single" = params.get("v") === "single" ? "single" : "matrix";
-let grid = GRID_CHOICES.includes(Number(params.get("g"))) ? Number(params.get("g")) : 8;
+// 分割数は軸ごと。旧 URL の g は両軸に適用する
+function parseGridParam(qs: string): number {
+  for (const raw of [params.get(qs), params.get("g")]) {
+    const v = Number(raw);
+    if (GRID_CHOICES.includes(v)) return v;
+  }
+  return 8;
+}
+let gridX = parseGridParam("gx");
+let gridY = parseGridParam("gy");
 let speed = SPEED_CHOICES.includes(Number(params.get("s"))) ? Number(params.get("s")) : 2;
 let paused = false;
 
@@ -297,7 +306,7 @@ try {
   const rs = model.resScale ?? 1;
   const matrixRes = Math.max(32, Math.round(MATRIX_TILE_RES * rs));
   const singleRes = Math.max(96, Math.round(SINGLE_TILE_RES * rs));
-  matrixSim = new Simulation(matrixCanvas, model, grid, grid, matrixRes);
+  matrixSim = new Simulation(matrixCanvas, model, gridX, gridY, matrixRes);
   singleSim = new Simulation(singleCanvas, model, 1, 1, singleRes);
 } catch (e) {
   viewMatrix.hidden = true;
@@ -379,7 +388,8 @@ function buildUrl(): string {
   const dy = getParam(model, yKey).axisRange;
   if (xRange[0] !== dx[0] || xRange[1] !== dx[1]) p.set("xr", `${xRange[0]},${xRange[1]}`);
   if (yRange[0] !== dy[0] || yRange[1] !== dy[1]) p.set("yr", `${yRange[0]},${yRange[1]}`);
-  if (grid !== 8) p.set("g", String(grid));
+  if (gridX !== 8) p.set("gx", String(gridX));
+  if (gridY !== 8) p.set("gy", String(gridY));
   if (speed !== 2) p.set("s", String(speed));
   for (const param of model.params) {
     if (values[param.key] !== param.default) p.set(`p_${param.key}`, String(values[param.key]));
@@ -438,11 +448,21 @@ function initSegment(el: HTMLElement, initial: string, onChange: (value: string)
 initSegment($("theme-segment"), storedTheme, (v) => applyTheme(v as Theme));
 applyTheme(storedTheme);
 
-initSegment($("grid-segment"), String(grid), (v) => {
-  grid = Number(v);
-  matrixSim?.setGrid(grid, grid);
+function applyGrid() {
+  matrixSim?.setGrid(gridX, gridY);
   renderTicks();
+  fitCanvases(); // 縦横比が変わる
   updateUrl();
+}
+
+initSegment($("x-grid-segment"), String(gridX), (v) => {
+  gridX = Number(v);
+  applyGrid();
+});
+
+initSegment($("y-grid-segment"), String(gridY), (v) => {
+  gridY = Number(v);
+  applyGrid();
 });
 
 initSegment($("speed-segment"), String(speed), (v) => {
@@ -454,11 +474,14 @@ initSegment($("speed-segment"), String(speed), (v) => {
 function renderTicks() {
   xTicks.replaceChildren();
   yTicks.replaceChildren();
-  for (let i = 0; i < grid; i++) {
-    const t = grid > 1 ? i / (grid - 1) : 0;
+  for (let i = 0; i < gridX; i++) {
+    const t = gridX > 1 ? i / (gridX - 1) : 0;
     const xs = document.createElement("span");
     xs.textContent = fmt(lerp(xRange[0], xRange[1], t));
     xTicks.appendChild(xs);
+  }
+  for (let i = 0; i < gridY; i++) {
+    const t = gridY > 1 ? i / (gridY - 1) : 0;
     const ys = document.createElement("span");
     ys.textContent = fmt(lerp(yRange[0], yRange[1], t));
     yTicks.appendChild(ys);
@@ -480,6 +503,8 @@ const singleWrap = viewSingle.querySelector<HTMLElement>(".single__canvas-wrap")
 const singleHint = viewSingle.querySelector<HTMLElement>(".view-card__hint")!;
 
 function fitCanvases() {
+  // 縦横の分割数が違ってもタイルが正方形になるようにキャンバスの縦横比を合わせる
+  matrixEl.style.setProperty("--matrix-aspect", `${gridX} / ${gridY}`);
   if (!desktopLayout.matches) {
     matrixEl.style.removeProperty("--matrix-size");
     singleWrap.style.removeProperty("width");
@@ -491,7 +516,8 @@ function fitCanvases() {
     const chromeH = matrixCard.offsetHeight - matrixWrap.offsetHeight;
     // 幅はカード内コンテンツ右端 (= ヒント右端) から軸ラベル・目盛の右まで
     const availW = matrixHint.getBoundingClientRect().right - matrixWrap.getBoundingClientRect().left;
-    const size = Math.max(120, Math.floor(Math.min(availW, stageH - chromeH)));
+    // --matrix-size は幅。高さは aspect-ratio (gridX/gridY) で決まる
+    const size = Math.max(120, Math.floor(Math.min(availW, (stageH - chromeH) * (gridX / gridY))));
     matrixEl.style.setProperty("--matrix-size", `${size}px`);
   }
   if (!viewSingle.hidden) {
@@ -561,14 +587,15 @@ function tileFromEvent(e: PointerEvent | MouseEvent) {
   const rect = matrixWrap.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
-  const col = clamp(Math.floor((x / rect.width) * grid), 0, grid - 1);
-  const rowFromTop = clamp(Math.floor((y / rect.height) * grid), 0, grid - 1);
-  const row = grid - 1 - rowFromTop; // 行 0 は下端 (= 範囲の最小値)
-  const t = grid > 1 ? 1 / (grid - 1) : 0;
+  const col = clamp(Math.floor((x / rect.width) * gridX), 0, gridX - 1);
+  const rowFromTop = clamp(Math.floor((y / rect.height) * gridY), 0, gridY - 1);
+  const row = gridY - 1 - rowFromTop; // 行 0 は下端 (= 範囲の最小値)
+  const tx = gridX > 1 ? 1 / (gridX - 1) : 0;
+  const ty = gridY > 1 ? 1 / (gridY - 1) : 0;
   return {
     col, rowFromTop,
-    xv: lerp(xRange[0], xRange[1], col * t),
-    yv: lerp(yRange[0], yRange[1], row * t),
+    xv: lerp(xRange[0], xRange[1], col * tx),
+    yv: lerp(yRange[0], yRange[1], row * ty),
     rect, x, y,
   };
 }
@@ -576,10 +603,10 @@ function tileFromEvent(e: PointerEvent | MouseEvent) {
 matrixWrap.addEventListener("pointermove", (e) => {
   const { col, rowFromTop, xv, yv, rect, x, y } = tileFromEvent(e);
   hoverBox.hidden = false;
-  hoverBox.style.left = `${(col / grid) * 100}%`;
-  hoverBox.style.top = `${(rowFromTop / grid) * 100}%`;
-  hoverBox.style.width = `${100 / grid}%`;
-  hoverBox.style.height = `${100 / grid}%`;
+  hoverBox.style.left = `${(col / gridX) * 100}%`;
+  hoverBox.style.top = `${(rowFromTop / gridY) * 100}%`;
+  hoverBox.style.width = `${100 / gridX}%`;
+  hoverBox.style.height = `${100 / gridY}%`;
 
   tooltip.hidden = false;
   tooltip.textContent = `${getParam(model, yKey).symbol} ${fmt(yv)} / ${getParam(model, xKey).symbol} ${fmt(xv)}`;
@@ -639,10 +666,15 @@ $("reseed-button").addEventListener("click", () => {
   (view === "single" ? singleSim : matrixSim)?.seed();
 });
 const pauseButton = $<HTMLButtonElement>("pause-button");
-const pauseLabel = $("pause-label");
+const pauseIcon = $("pause-icon");
+const playIcon = $("play-icon");
 pauseButton.addEventListener("click", () => {
   paused = !paused;
-  pauseLabel.textContent = paused ? "再開" : "一時停止";
+  pauseIcon.toggleAttribute("hidden", paused);
+  playIcon.toggleAttribute("hidden", !paused);
+  const label = paused ? "再開" : "一時停止";
+  pauseButton.setAttribute("aria-label", label);
+  pauseButton.title = label;
   pauseButton.setAttribute("aria-pressed", String(paused));
 });
 

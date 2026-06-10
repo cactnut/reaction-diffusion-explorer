@@ -85,16 +85,30 @@
           </div>
 
           <div class="control-group" data-only="matrix">
-            <span class="control-label">マトリックスの軸</span>
+            <span class="control-label">マトリックスの軸と分割数</span>
             <div class="axis-picker">
-              <label class="axis-picker__row">
-                <span class="axis-picker__tag">横軸 X</span>
+              <div class="axis-picker__row">
+                <label class="axis-picker__tag" for="x-axis-select">横軸 X</label>
                 <select id="x-axis-select" class="input input--sm"></select>
-              </label>
-              <label class="axis-picker__row">
-                <span class="axis-picker__tag">縦軸 Y</span>
+                <div class="segment segment--sm" id="x-grid-segment" role="group" aria-label="横軸の分割数"
+                     data-squircle data-squircle-radius="999" data-squircle-stroke>
+                  <span class="segment__thumb" data-squircle data-squircle-radius="999" aria-hidden="true"></span>
+                  <button type="button" class="segment__option" data-value="6" aria-label="横 6 分割">6</button>
+                  <button type="button" class="segment__option segment__option--active" data-value="8" aria-label="横 8 分割">8</button>
+                  <button type="button" class="segment__option" data-value="10" aria-label="横 10 分割">10</button>
+                </div>
+              </div>
+              <div class="axis-picker__row">
+                <label class="axis-picker__tag" for="y-axis-select">縦軸 Y</label>
                 <select id="y-axis-select" class="input input--sm"></select>
-              </label>
+                <div class="segment segment--sm" id="y-grid-segment" role="group" aria-label="縦軸の分割数"
+                     data-squircle data-squircle-radius="999" data-squircle-stroke>
+                  <span class="segment__thumb" data-squircle data-squircle-radius="999" aria-hidden="true"></span>
+                  <button type="button" class="segment__option" data-value="6" aria-label="縦 6 分割">6</button>
+                  <button type="button" class="segment__option segment__option--active" data-value="8" aria-label="縦 8 分割">8</button>
+                  <button type="button" class="segment__option" data-value="10" aria-label="縦 10 分割">10</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -102,36 +116,44 @@
           <div id="param-controls"></div>
         </div>
 
-        <!-- 常に表示するパネルフッター -->
+        <!-- 常に表示するパネルフッター (一時停止 / 再生速度 / 再シード) -->
         <div class="controls__footer">
-          <div class="control-group" data-only="matrix">
-            <span class="control-label">分割数</span>
-            <div class="segment" id="grid-segment" role="group" aria-label="分割数"
-                 data-squircle data-squircle-radius="999" data-squircle-stroke>
-              <span class="segment__thumb" data-squircle data-squircle-radius="999" aria-hidden="true"></span>
-              <button type="button" class="segment__option" data-value="6">6×6</button>
-              <button type="button" class="segment__option segment__option--active" data-value="8">8×8</button>
-              <button type="button" class="segment__option" data-value="10">10×10</button>
-            </div>
+          <button type="button" id="pause-button" class="button button--secondary button--icon" aria-pressed="false" aria-label="一時停止" title="一時停止"
+                  data-squircle data-squircle-radius="8" data-squircle-stroke>
+            <svg id="pause-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/>
+            </svg>
+            <svg id="play-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden>
+              <path d="M8 5.2 L19 12 L8 18.8 Z"/>
+            </svg>
+          </button>
+
+          <div class="segment" id="speed-segment" role="group" aria-label="速度"
+               data-squircle data-squircle-radius="999" data-squircle-stroke>
+            <span class="segment__thumb" data-squircle data-squircle-radius="999" aria-hidden="true"></span>
+            <button type="button" class="segment__option segment__option--icon" data-value="1" aria-label="速度 ×1" title="速度 ×1">
+              <svg viewBox="0 0 9 12" fill="currentColor" aria-hidden="true">
+                <path d="M0.5 0.8 L8.5 6 L0.5 11.2 Z"/>
+              </svg>
+            </button>
+            <button type="button" class="segment__option segment__option--active segment__option--icon" data-value="2" aria-label="速度 ×2" title="速度 ×2">
+              <svg viewBox="0 0 16 12" fill="currentColor" aria-hidden="true">
+                <path d="M0.5 0.8 L8.5 6 L0.5 11.2 Z"/><path d="M7.5 0.8 L15.5 6 L7.5 11.2 Z"/>
+              </svg>
+            </button>
+            <button type="button" class="segment__option segment__option--icon" data-value="4" aria-label="速度 ×4" title="速度 ×4">
+              <svg viewBox="0 0 23 12" fill="currentColor" aria-hidden="true">
+                <path d="M0.5 0.8 L8.5 6 L0.5 11.2 Z"/><path d="M7.5 0.8 L15.5 6 L7.5 11.2 Z"/><path d="M14.5 0.8 L22.5 6 L14.5 11.2 Z"/>
+              </svg>
+            </button>
           </div>
 
-          <div class="control-group">
-            <span class="control-label">速度</span>
-            <div class="segment" id="speed-segment" role="group" aria-label="速度"
-                 data-squircle data-squircle-radius="999" data-squircle-stroke>
-              <span class="segment__thumb" data-squircle data-squircle-radius="999" aria-hidden="true"></span>
-              <button type="button" class="segment__option" data-value="1">×1</button>
-              <button type="button" class="segment__option segment__option--active" data-value="2">×2</button>
-              <button type="button" class="segment__option" data-value="4">×4</button>
-            </div>
-          </div>
-
-          <div class="controls__actions">
-            <button type="button" id="reseed-button" class="button button--primary"
-                    data-squircle data-squircle-radius="8">再シード</button>
-            <button type="button" id="pause-button" class="button button--secondary" aria-pressed="false"
-                    data-squircle data-squircle-radius="8" data-squircle-stroke><span id="pause-label">一時停止</span></button>
-          </div>
+          <button type="button" id="reseed-button" class="button button--primary button--icon" aria-label="再シード" title="再シード"
+                  data-squircle data-squircle-radius="8">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
+            </svg>
+          </button>
         </div>
       </aside>
     </main>

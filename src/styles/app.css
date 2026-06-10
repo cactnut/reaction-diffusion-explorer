@@ -87,7 +87,7 @@
 }
 
 @media (min-width: 1024px) {
-  .main { grid-template-columns: minmax(0, 1fr) 320px; }
+  .main { grid-template-columns: minmax(0, 1fr) 380px; }
 }
 
 /* 縦幅が確保できる 2 カラム時だけページをスクロールさせず、ビューポートの縦幅に収める。
@@ -218,7 +218,8 @@
 .matrix__canvas-wrap {
   grid-area: canvas;
   position: relative;
-  aspect-ratio: 1;
+  /* 縦横の分割数が違ってもタイルが正方形になるように fitCanvases() が設定する */
+  aspect-ratio: var(--matrix-aspect, 1);
 }
 
 canvas {
@@ -299,13 +300,13 @@ canvas {
   }
 }
 
-/* 分割数・速度・再シード・停止を常に表示するパネルフッター */
+/* 速度・再シード・停止を常に表示するパネルフッター (アイコンのみの 1 行) */
 .controls__footer {
   flex: none;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-6) var(--space-6);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
   border-top: 1px solid var(--fill-strong);
 }
 
@@ -422,8 +423,28 @@ canvas {
 }
 .slider-row .input--num { width: 96px; flex: none; }
 
-.controls__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
+/* 再シードだけ右端に寄せる */
+.controls__footer #reseed-button { margin-left: auto; }
+
+/* ===== アイコンボタン / アイコンセグメント ===== */
+.button--icon {
+  width: 40px;
+  padding: 0;
+  flex: none;
 }
+/* squircle の枠線 SVG には当てない */
+.button--icon svg:not(.squircle-stroke) {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.segment__option--icon { padding: 8px 10px; }
+.segment__option--icon svg {
+  display: block;
+  height: 12px;
+  width: auto;
+}
+
+/* 軸セレクタ横に置く分割数用の小さめセグメント */
+.segment--sm .segment__option { padding: 4px 9px; }
