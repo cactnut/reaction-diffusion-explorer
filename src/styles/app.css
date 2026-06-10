@@ -85,11 +85,35 @@
   align-items: start;
   padding-bottom: var(--space-12);
 }
+
 @media (min-width: 1024px) {
   .main { grid-template-columns: minmax(0, 1fr) 320px; }
 }
 
-.main__stage { min-width: 0; }
+/* 縦幅が確保できる 2 カラム時だけページをスクロールさせず、ビューポートの縦幅に収める。
+   キャンバスの一辺は main.ts の fitCanvases() が --matrix-size / inline width で合わせる。
+   縦幅が足りないウィンドウでは従来どおりページスクロールにフォールバックする。
+   この条件は main.ts の desktopLayout と一致させること */
+@media (min-width: 1024px) and (min-height: 480px) {
+  .page {
+    height: 100vh;
+    height: 100dvh;
+    /* ベースの min-height:100vh を打ち消す (dvh < vh の環境でページが伸びるのを防ぐ) */
+    min-height: 0;
+    overflow: hidden;
+  }
+  .main {
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    min-height: 0;
+    padding-bottom: var(--space-6);
+  }
+}
+
+.main__stage {
+  min-width: 0;
+  min-height: 0;
+}
 
 .view-card {
   display: flex;
@@ -183,6 +207,14 @@
   }
 }
 
+/* --matrix-size は fitCanvases() が .matrix に設定する。未設定時は幅いっぱい。
+   目盛とラベルもキャンバスと同じ幅にしないと位置がずれる */
+.matrix__canvas-wrap,
+.matrix__xticks,
+.matrix__axis--x {
+  width: var(--matrix-size, 100%);
+}
+
 .matrix__canvas-wrap {
   grid-area: canvas;
   position: relative;
@@ -224,6 +256,9 @@ canvas {
 .single__canvas-wrap {
   position: relative;
   aspect-ratio: 1;
+  /* fitCanvases() が width を絞ったときはカード内で中央寄せ
+     (width 指定がなければ auto margin は 0 になり全幅のまま) */
+  margin-inline: auto;
 }
 #single-canvas {
   cursor: crosshair;
@@ -242,8 +277,36 @@ canvas {
 .controls {
   display: flex;
   flex-direction: column;
+  /* 余白はスクロール領域とフッターが持つ */
+  padding: 0;
+  min-height: 0;
+}
+
+.controls__scroll {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-6);
-  align-self: start;
+  padding: var(--space-6);
+  min-height: 0;
+}
+
+/* ページ固定モードではパラメータ部分だけが独立してスクロールする */
+@media (min-width: 1024px) and (min-height: 480px) {
+  .controls__scroll {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* 分割数・速度・再シード・停止を常に表示するパネルフッター */
+.controls__footer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  border-top: 1px solid var(--fill-strong);
 }
 
 .control-group {
@@ -364,19 +427,3 @@ canvas {
   flex-wrap: wrap;
   gap: var(--space-3);
 }
-
-/* ===== Footer ===== */
-.footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
-  padding: var(--space-6);
-  border-top: 1px solid var(--border);
-  color: var(--muted);
-  font-size: var(--text-xs);
-}
-.footer p { margin: 0; }
-.footer a { color: var(--muted); }
-.footer__copyright { font-size: var(--text-xs); color: var(--muted); }

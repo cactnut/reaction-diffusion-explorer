@@ -76,67 +76,65 @@
 
       <!-- コントロール -->
       <aside class="card controls" data-squircle data-squircle-radius="12" aria-label="コントロール">
-        <div class="control-group">
-          <label class="control-label" for="model-select">モデル</label>
-          <select id="model-select" class="input"></select>
-          <div class="model-info" id="model-info"></div>
-        </div>
-
-        <div class="control-group" data-only="matrix">
-          <span class="control-label">マトリックスの軸</span>
-          <div class="axis-picker">
-            <label class="axis-picker__row">
-              <span class="axis-picker__tag">横軸 X</span>
-              <select id="x-axis-select" class="input input--sm"></select>
-            </label>
-            <label class="axis-picker__row">
-              <span class="axis-picker__tag">縦軸 Y</span>
-              <select id="y-axis-select" class="input input--sm"></select>
-            </label>
+        <!-- パラメータ類はここだけが独立してスクロールする -->
+        <div class="controls__scroll">
+          <div class="control-group">
+            <label class="control-label" for="model-select">モデル</label>
+            <select id="model-select" class="input"></select>
+            <div class="model-info" id="model-info"></div>
           </div>
-        </div>
 
-        <!-- パラメータコントロール (モデル / 軸選択 / ビューに応じて再生成) -->
-        <div id="param-controls"></div>
-
-        <div class="control-group" data-only="matrix">
-          <span class="control-label">分割数</span>
-          <div class="segment" id="grid-segment" role="group" aria-label="分割数"
-               data-squircle data-squircle-radius="999" data-squircle-stroke>
-            <span class="segment__thumb" data-squircle data-squircle-radius="999" aria-hidden="true"></span>
-            <button type="button" class="segment__option" data-value="6">6×6</button>
-            <button type="button" class="segment__option segment__option--active" data-value="8">8×8</button>
-            <button type="button" class="segment__option" data-value="10">10×10</button>
+          <div class="control-group" data-only="matrix">
+            <span class="control-label">マトリックスの軸</span>
+            <div class="axis-picker">
+              <label class="axis-picker__row">
+                <span class="axis-picker__tag">横軸 X</span>
+                <select id="x-axis-select" class="input input--sm"></select>
+              </label>
+              <label class="axis-picker__row">
+                <span class="axis-picker__tag">縦軸 Y</span>
+                <select id="y-axis-select" class="input input--sm"></select>
+              </label>
+            </div>
           </div>
+
+          <!-- パラメータコントロール (モデル / 軸選択 / ビューに応じて再生成) -->
+          <div id="param-controls"></div>
         </div>
 
-        <div class="control-group">
-          <span class="control-label">速度</span>
-          <div class="segment" id="speed-segment" role="group" aria-label="速度"
-               data-squircle data-squircle-radius="999" data-squircle-stroke>
-            <span class="segment__thumb" data-squircle data-squircle-radius="999" aria-hidden="true"></span>
-            <button type="button" class="segment__option" data-value="1">×1</button>
-            <button type="button" class="segment__option segment__option--active" data-value="2">×2</button>
-            <button type="button" class="segment__option" data-value="4">×4</button>
+        <!-- 常に表示するパネルフッター -->
+        <div class="controls__footer">
+          <div class="control-group" data-only="matrix">
+            <span class="control-label">分割数</span>
+            <div class="segment" id="grid-segment" role="group" aria-label="分割数"
+                 data-squircle data-squircle-radius="999" data-squircle-stroke>
+              <span class="segment__thumb" data-squircle data-squircle-radius="999" aria-hidden="true"></span>
+              <button type="button" class="segment__option" data-value="6">6×6</button>
+              <button type="button" class="segment__option segment__option--active" data-value="8">8×8</button>
+              <button type="button" class="segment__option" data-value="10">10×10</button>
+            </div>
           </div>
-        </div>
 
-        <div class="controls__actions">
-          <button type="button" id="reseed-button" class="button button--primary"
-                  data-squircle data-squircle-radius="8">再シード</button>
-          <button type="button" id="pause-button" class="button button--secondary" aria-pressed="false"
-                  data-squircle data-squircle-radius="8" data-squircle-stroke><span id="pause-label">一時停止</span></button>
+          <div class="control-group">
+            <span class="control-label">速度</span>
+            <div class="segment" id="speed-segment" role="group" aria-label="速度"
+                 data-squircle data-squircle-radius="999" data-squircle-stroke>
+              <span class="segment__thumb" data-squircle data-squircle-radius="999" aria-hidden="true"></span>
+              <button type="button" class="segment__option" data-value="1">×1</button>
+              <button type="button" class="segment__option segment__option--active" data-value="2">×2</button>
+              <button type="button" class="segment__option" data-value="4">×4</button>
+            </div>
+          </div>
+
+          <div class="controls__actions">
+            <button type="button" id="reseed-button" class="button button--primary"
+                    data-squircle data-squircle-radius="8">再シード</button>
+            <button type="button" id="pause-button" class="button button--secondary" aria-pressed="false"
+                    data-squircle data-squircle-radius="8" data-squircle-stroke><span id="pause-label">一時停止</span></button>
+          </div>
         </div>
       </aside>
     </main>
-
-    <footer class="footer">
-      <p>reaction-diffusion explorer</p>
-      <a href="https://github.com/cactnut/reaction-diffusion-explorer">GitHub</a>
-      <small class="footer__copyright">
-        © <span class="footer__years" hidden><span data-year-range></span> </span>cactnut
-      </small>
-    </footer>
   </div>
 
   <script type="module" src="/src/main.ts"></script>

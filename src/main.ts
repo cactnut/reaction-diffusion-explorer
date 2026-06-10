@@ -9,7 +9,6 @@ const MATRIX_TILE_RES = 128;
 const SINGLE_TILE_RES = 384;
 const GRID_CHOICES = [6, 8, 10];
 const SPEED_CHOICES = [1, 2, 4];
-const START_YEAR = 2026;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -401,7 +400,19 @@ function updateUrl(push = false) {
 function initSegment(el: HTMLElement, initial: string, onChange: (value: string) => void) {
   const options = [...el.querySelectorAll<HTMLButtonElement>(".segment__option")];
   let active: HTMLButtonElement | null = null;
+  let wasHidden = false;
   const move = (btn: HTMLButtonElement) => {
+    // display:none 中は 0 が計測される。書き込まずに保持し、
+    // 再表示直後の 1 回はアニメーションなしで配置する (thumb の飛び込み防止)
+    if (!el.offsetWidth) {
+      wasHidden = true;
+      return;
+    }
+    if (wasHidden) {
+      wasHidden = false;
+      el.classList.remove("is-ready");
+      requestAnimationFrame(() => el.classList.add("is-ready"));
+    }
     el.style.setProperty("--thumb-x", `${btn.offsetLeft}px`);
     el.style.setProperty("--thumb-y", `${btn.offsetTop}px`);
     el.style.setProperty("--thumb-w", `${btn.offsetWidth}px`);
@@ -454,6 +465,49 @@ function renderTicks() {
   }
 }
 
+// ===== キャンバスを画面の縦幅に収める =====
+// 2 カラムレイアウト時はページをスクロールさせず、キャンバスの一辺を
+// 「ステージの高さからカード内のキャンバス以外の高さを引いた値」と
+// 利用可能な幅の小さい方に合わせる。1 カラム時は従来どおり幅いっぱい。
+// app.css のページ固定モードの media query と一致させること
+const desktopLayout = matchMedia("(min-width: 1024px) and (min-height: 480px)");
+const stageEl = document.querySelector<HTMLElement>(".main__stage")!;
+const matrixEl = document.querySelector<HTMLElement>(".matrix")!;
+const matrixCard = viewMatrix.querySelector<HTMLElement>(".view-card")!;
+const matrixHint = viewMatrix.querySelector<HTMLElement>(".view-card__hint")!;
+const singleCard = viewSingle.querySelector<HTMLElement>(".view-card")!;
+const singleWrap = viewSingle.querySelector<HTMLElement>(".single__canvas-wrap")!;
+const singleHint = viewSingle.querySelector<HTMLElement>(".view-card__hint")!;
+
+function fitCanvases() {
+  if (!desktopLayout.matches) {
+    matrixEl.style.removeProperty("--matrix-size");
+    singleWrap.style.removeProperty("width");
+    return;
+  }
+  const stageH = stageEl.clientHeight;
+  if (!viewMatrix.hidden) {
+    // 目盛・ラベル・ヒント・カード余白の高さはキャンバスサイズに依存しない
+    const chromeH = matrixCard.offsetHeight - matrixWrap.offsetHeight;
+    // 幅はカード内コンテンツ右端 (= ヒント右端) から軸ラベル・目盛の右まで
+    const availW = matrixHint.getBoundingClientRect().right - matrixWrap.getBoundingClientRect().left;
+    const size = Math.max(120, Math.floor(Math.min(availW, stageH - chromeH)));
+    matrixEl.style.setProperty("--matrix-size", `${size}px`);
+  }
+  if (!viewSingle.hidden) {
+    const chromeH = singleCard.offsetHeight - singleWrap.offsetHeight;
+    const size = Math.max(120, Math.floor(Math.min(singleHint.offsetWidth, stageH - chromeH)));
+    singleWrap.style.width = `${size}px`;
+  }
+}
+
+desktopLayout.addEventListener("change", fitCanvases);
+new ResizeObserver(fitCanvases).observe(stageEl);
+// 目盛ラベルの幅が変わると左の余白が変わる。fitCanvases は yTicks 自身の高さ
+// (= --matrix-size) を変えるため、同一サイクルで処理するとループエラーになる。
+// rAF で次フレームにずらす
+new ResizeObserver(() => requestAnimationFrame(fitCanvases)).observe(yTicks);
+
 // ===== ビュー切替 =====
 function setMode(mode: "matrix" | "single") {
   document.querySelectorAll<HTMLElement>("[data-only]").forEach((el) => {
@@ -472,6 +526,7 @@ function setView(v: "matrix" | "single", push: boolean) {
   setMode(v);
   renderParamControls(); // 軸パラメータが range↔slider で切り替わる
   if (v === "single") singleParams.textContent = paramSummary();
+  fitCanvases();
   updateUrl(push);
 }
 
@@ -591,17 +646,6 @@ pauseButton.addEventListener("click", () => {
   pauseButton.setAttribute("aria-pressed", String(paused));
 });
 
-// ===== フッターの年表記 =====
-{
-  const y = new Date().getFullYear();
-  const range = document.querySelector<HTMLElement>("[data-year-range]");
-  const years = document.querySelector<HTMLElement>(".footer__years");
-  if (range && years) {
-    range.textContent = y > START_YEAR ? `${START_YEAR}–${y}` : String(START_YEAR);
-    years.hidden = false;
-  }
-}
-
 // ===== 初期化 =====
 renderModelInfo();
 fillAxisSelect(xAxisSelect, xKey);
@@ -613,7 +657,8 @@ pushToSims();
 if (view === "single") {
   singleSim?.seed();
 }
-setView(view, false);
+// シミュレーションを作れなかったときはエラービューのまま (setView が viewMatrix を再表示してしまう)
+if (matrixSim) setView(view, false);
 initSquircle();
 
 // ===== メインループ =====
