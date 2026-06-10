@@ -28,6 +28,15 @@ function parseNum(s: string | null | undefined, fallback: number): number {
   return Number.isFinite(v) ? v : fallback;
 }
 
+// label に数式記号が紛れているとき (例: "励起振幅 a" + symbol "a") は記号を二重に
+// 表示してしまうので、記号トークンを除いた名前部分だけを返す。記号は呼び出し側で
+// .control-sym などのスタイル付きで別途付加する。
+function paramName(p: { label: string; symbol: string }): string {
+  const tokens = p.label.split(/\s+/);
+  const i = tokens.lastIndexOf(p.symbol);
+  return i < 0 ? p.label : tokens.filter((_, k) => k !== i).join(" ");
+}
+
 // ===== 状態 =====
 const params = new URLSearchParams(location.search);
 const model: RDModel = findModel(params.get("m"));
@@ -141,7 +150,7 @@ function fillAxisSelect(sel: HTMLSelectElement, selectedKey: string) {
     if (!p.axisEligible) continue;
     const opt = document.createElement("option");
     opt.value = p.key;
-    opt.textContent = `${p.label} (${p.symbol})`;
+    opt.textContent = `${paramName(p)} (${p.symbol})`;
     sel.appendChild(opt);
   }
   sel.value = selectedKey;
@@ -171,8 +180,10 @@ xAxisSelect.addEventListener("change", () => onAxisChange("x", xAxisSelect.value
 yAxisSelect.addEventListener("change", () => onAxisChange("y", yAxisSelect.value));
 
 function updateAxisLabels() {
-  xAxisLabel.textContent = `${getParam(model, xKey).label} (${getParam(model, xKey).symbol})`;
-  yAxisLabel.textContent = `${getParam(model, yKey).label} (${getParam(model, yKey).symbol})`;
+  const px = getParam(model, xKey);
+  const py = getParam(model, yKey);
+  xAxisLabel.textContent = `${paramName(px)} (${px.symbol})`;
+  yAxisLabel.textContent = `${paramName(py)} (${py.symbol})`;
 }
 
 // ===== パラメータコントロール (動的生成) =====
@@ -193,9 +204,9 @@ function renderParamControls() {
     label.className = "control-label";
     if (asRange) {
       const which = p.key === xKey ? "横軸 X" : "縦軸 Y";
-      label.innerHTML = `${p.label} <span class="control-sym">${p.symbol}</span> <span class="control-axis-tag">${which}</span>`;
+      label.innerHTML = `${paramName(p)} <span class="control-sym">${p.symbol}</span> <span class="control-axis-tag">${which}</span>`;
     } else {
-      label.innerHTML = `${p.label} <span class="control-sym">${p.symbol}</span>`;
+      label.innerHTML = `${paramName(p)} <span class="control-sym">${p.symbol}</span>`;
     }
     g.appendChild(label);
 

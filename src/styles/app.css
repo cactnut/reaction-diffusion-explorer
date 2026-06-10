@@ -354,6 +354,9 @@ canvas {
   font-size: 13px;
   line-height: 1.5;
   color: var(--muted);
+  /* 長い和文本文。body の keep-all を解除し CJK 文字間でも折り返せるようにする
+     (さもないと変数名前後の半角スペースだけが改行候補になり不自然に折れる) */
+  word-break: normal;
 }
 /* inline-flex の segment が stretch で伸びないように */
 .control-group .segment { align-self: flex-start; }
@@ -393,6 +396,8 @@ canvas {
   font-size: 13px;
   line-height: 1.6;
   color: var(--muted);
+  /* 長い和文本文。body の keep-all を解除し CJK 文字間でも折り返せるようにする */
+  word-break: normal;
 }
 .model-info__desc--sub {
   font-size: 12px;
