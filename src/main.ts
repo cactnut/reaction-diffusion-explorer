@@ -4,6 +4,7 @@ import "./styles/app.css";
 import { initSquircle } from "./squircle";
 import { Simulation, type RGB, type SimColors } from "./sim";
 import { models, findModel, getParam, type RDModel } from "./models";
+import { texToMathML } from "./mathml";
 
 const MATRIX_TILE_RES = 128;
 const SINGLE_TILE_RES = 384;
@@ -116,7 +117,8 @@ function renderModelInfo() {
   for (const eq of model.equations) {
     const e = document.createElement("div");
     e.className = "model-info__eq";
-    e.textContent = eq;
+    // equations は LaTeX サブセット。ネイティブ MathML に変換して描画する
+    e.innerHTML = texToMathML(eq);
     info.appendChild(e);
   }
   const desc = document.createElement("p");
@@ -496,11 +498,10 @@ function renderTicks() {
 const desktopLayout = matchMedia("(min-width: 1024px) and (min-height: 480px)");
 const stageEl = document.querySelector<HTMLElement>(".main__stage")!;
 const matrixEl = document.querySelector<HTMLElement>(".matrix")!;
-const matrixCard = viewMatrix.querySelector<HTMLElement>(".view-card")!;
 const matrixHint = viewMatrix.querySelector<HTMLElement>(".view-card__hint")!;
-const singleCard = viewSingle.querySelector<HTMLElement>(".view-card")!;
+const matrixCanvasArea = viewMatrix.querySelector<HTMLElement>(".view-card__canvas")!;
 const singleWrap = viewSingle.querySelector<HTMLElement>(".single__canvas-wrap")!;
-const singleHint = viewSingle.querySelector<HTMLElement>(".view-card__hint")!;
+const singleCanvasArea = viewSingle.querySelector<HTMLElement>(".view-card__canvas")!;
 
 function fitCanvases() {
   // 縦横の分割数が違ってもタイルが正方形になるようにキャンバスの縦横比を合わせる
@@ -510,19 +511,19 @@ function fitCanvases() {
     singleWrap.style.removeProperty("width");
     return;
   }
-  const stageH = stageEl.clientHeight;
+  // view-card__canvas はヒント / バーを除いた中央領域。その実寸に収める
   if (!viewMatrix.hidden) {
-    // 目盛・ラベル・ヒント・カード余白の高さはキャンバスサイズに依存しない
-    const chromeH = matrixCard.offsetHeight - matrixWrap.offsetHeight;
-    // 幅はカード内コンテンツ右端 (= ヒント右端) から軸ラベル・目盛の右まで
+    const availH = matrixCanvasArea.clientHeight;
+    // 目盛・軸ラベルの高さ (キャンバスサイズに依存しない)
+    const chromeV = matrixEl.offsetHeight - matrixWrap.offsetHeight;
+    // 幅は軸ラベル・目盛の右端からカード右端 (= ヒント右端) まで
     const availW = matrixHint.getBoundingClientRect().right - matrixWrap.getBoundingClientRect().left;
     // --matrix-size は幅。高さは aspect-ratio (gridX/gridY) で決まる
-    const size = Math.max(120, Math.floor(Math.min(availW, (stageH - chromeH) * (gridX / gridY))));
+    const size = Math.max(120, Math.floor(Math.min(availW, (availH - chromeV) * (gridX / gridY))));
     matrixEl.style.setProperty("--matrix-size", `${size}px`);
   }
   if (!viewSingle.hidden) {
-    const chromeH = singleCard.offsetHeight - singleWrap.offsetHeight;
-    const size = Math.max(120, Math.floor(Math.min(singleHint.offsetWidth, stageH - chromeH)));
+    const size = Math.max(120, Math.floor(Math.min(singleCanvasArea.clientWidth, singleCanvasArea.clientHeight)));
     singleWrap.style.width = `${size}px`;
   }
 }

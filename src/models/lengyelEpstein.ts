@@ -6,8 +6,8 @@ export const lengyelEpstein: RDModel = {
   description: "CDIMA化学反応のチューリングモデル。活性化因子u(ヨウ化物イオン I⁻)と抑制因子v(亜塩素酸イオン)が反応拡散により斑点・縞・六角格子パターンを自発形成する。供給率aが基底濃度を、bが抑制因子の応答強度を決め、両者の比が斑点と縞の境界を支配する。",
   speciesNote: "u=活性化因子(ヨウ化物 I⁻, c.r): 拡散が遅く局所的に増幅。v=抑制因子(亜塩素酸 ClO₂⁻, c.g): 速く拡散しuを抑える。Du<Dv(短距離活性化・長距離抑制)がチューリング不安定性を生む。時間スケール比σは抑制因子の式全体(拡散と反応の両方)に掛かり、長距離抑制の主因となる。均一定常状態 u₀=a/5, v₀=1+u₀² の周りで微小ノイズから空間パターンが成長する。",
   equations: [
-    "∂u/∂t = Du·∇²u + a − u − 4uv/(1+u²)",
-    "∂v/∂t = σ·[ (Du·r)·∇²v + b·(u − uv/(1+u²)) ]",
+    String.raw`\frac{\partial u}{\partial t} = D_u \cdot \nabla^2 u + a - u - \frac{4uv}{1 + u^2}`,
+    String.raw`\frac{\partial v}{\partial t} = \sigma \cdot \left[(D_u \cdot r) \cdot \nabla^2 v + b \cdot \left(u - \frac{uv}{1 + u^2}\right)\right]`,
   ],
   components: 2,
   resScale: 0.45,

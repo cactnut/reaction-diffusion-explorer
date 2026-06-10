@@ -108,6 +108,9 @@
     min-height: 0;
     padding-bottom: var(--space-6);
   }
+  /* カードをステージの高さいっぱいにし、view-card__canvas が余白を中央化できるようにする */
+  .view,
+  .view-card { height: 100%; }
 }
 
 .main__stage {
@@ -138,6 +141,17 @@
   font-size: var(--text-xs);
   color: var(--muted);
   line-height: 1.5;
+  text-align: center;
+}
+
+/* ヒント / バーの下に残る領域。キャンバスをここで上下左右中央に置く */
+.view-card__canvas {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  min-width: 0;
 }
 
 /* ===== Matrix ===== */
@@ -362,12 +376,17 @@ canvas {
   background: var(--fill);
 }
 .model-info__eq {
-  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.6;
   color: var(--fg);
   overflow-x: auto;
-  white-space: nowrap;
+  overflow-y: hidden;
+}
+/* ネイティブ MathML。ブロック数式は UA 既定で中央寄せされることがあるので左寄せに揃える */
+.model-info__eq math {
+  font-size: 15px;
+}
+.model-info__eq math[display="block"] {
+  margin: 0;
+  text-align: left;
 }
 .model-info__desc {
   margin: 0;

@@ -6,8 +6,8 @@ export const giererMeinhardt: RDModel = {
   description: "古典的な活性因子・抑制因子型のチューリング反応拡散系。活性因子 u が自己触媒的に増殖しつつ抑制因子 v を生成し、v が拡散して u を抑える。短距離活性化・長距離抑制により、斑点やネットワーク状のパターンが一様状態から自発的に立ち上がる。",
   speciesNote: "2成分系。c.r = 活性因子 u（自己触媒的に増える可視種、ブラシで注入する）、c.g = 抑制因子 v（u に追従して増え u を抑える）。b/a は未使用で 0。",
   equations: [
-    "∂u/∂t = Du∇²u + ρ + u²/v − μu",
-    "∂v/∂t = Dv∇²v + u² − νv   (Dv = Du·ratio)",
+    String.raw`\frac{\partial u}{\partial t} = D_u \nabla^2 u + \rho + \frac{u^2}{v} - \mu u`,
+    String.raw`\frac{\partial v}{\partial t} = D_v \nabla^2 v + u^2 - \nu v \quad (D_v = D_u \cdot {ratio})`,
   ],
   components: 2,
   resScale: 0.5,

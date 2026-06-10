@@ -11,8 +11,8 @@ export const grayScott: RDModel = {
     "基質 U が触媒種 V に変換される系。U を供給 (feed) し V を除去 (kill) する速度のバランスで、斑点・迷路・コーラル状・自己複製する模様が現れる。",
   speciesNote: "u = 基質の濃度、v = 自己触媒種の濃度。表示は v の濃いところを明色にしている。",
   equations: [
-    "∂u/∂t = Dᵤ∇²u − u·v² + F(1 − u)",
-    "∂v/∂t = Dᵥ∇²v + u·v² − (F + k)v",
+    String.raw`\frac{\partial u}{\partial t} = D_u \nabla^2 u - u \cdot v^2 + F(1 - u)`,
+    String.raw`\frac{\partial v}{\partial t} = D_v \nabla^2 v + u \cdot v^2 - (F + k)v`,
   ],
   components: 2,
   params: [

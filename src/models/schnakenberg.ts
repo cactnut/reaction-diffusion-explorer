@@ -6,8 +6,8 @@ export const schnakenberg: RDModel = {
   description: "活性因子 u と基質 v による2成分の反応拡散系。基質が一定速度で供給され、自己触媒反応 u²v によって活性因子が増殖する。基質の拡散が活性因子よりずっと速い(Dv≫Du)ことでチューリング不安定性が生じ、一様状態から自発的にスポットや迷路状のパターンが形成される。",
   speciesNote: "c.r = u(活性因子, ブラシで注入)、c.g = v(基質)。一様定常状態は u0=a+b, v0=b/(a+b)²。微小ノイズを加えた一様状態から開始し、チューリング不安定性でパターンが立ち上がる。なお供給係数 a が小さすぎる(0 付近)と一様定常状態の反応ヤコビアンが反応不安定(正の実固有値)になり、チューリングではなく単なる発散になるため、a の下限は 0.02 に設定している。",
   equations: [
-    "∂u/∂t = Du∇²u + a − u + u²v",
-    "∂v/∂t = Dv∇²v + b − u²v",
+    String.raw`\frac{\partial u}{\partial t} = D_u \nabla^2 u + a - u + u^2 v`,
+    String.raw`\frac{\partial v}{\partial t} = D_v \nabla^2 v + b - u^2 v`,
   ],
   components: 2,
   resScale: 0.5,

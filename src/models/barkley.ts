@@ -6,8 +6,8 @@ export const barkley: RDModel = {
   description: "バークレーモデルは興奮性媒質におけるスパイラル波（渦巻き波）を高速に生成するために設計された2変数反応拡散系です。活性因子 u は閾値 (v+b)/a を超えると一気に立ち上がり、回復変数 v がゆっくり追従して不応期を作ります。初期条件の対称性を u と v のクロスした半平面分割で破ることで、回転するスパイラル波が自発的に形成されます。a は興奮の振幅・波の太さを、b は閾値オフセット（励起のしやすさ）を、eps は時間スケール比（回復の速さ）を制御します。スパイラルが持続する興奮性領域は励起条件 a < 1+b を満たす a≈0.65〜0.95・b≦0.03 の範囲です。",
   speciesNote: "u (c.r) = 活性因子（興奮場、膜電位に相当）。閾値を超えると 0→1 へ急峻に立ち上がる。v (c.g) = 回復変数（不応性、ゆっくり u を追い、励起後の回復を司る）。b と c は未使用で 0。",
   equations: [
-    "∂u/∂t = Du∇²u + (1/ε)·u·(1−u)·(u−(v+b)/a)",
-    "∂v/∂t = Dv∇²v + (u−v)",
+    String.raw`\frac{\partial u}{\partial t} = D_u \nabla^2 u + \frac{1}{\varepsilon} \cdot u \cdot (1 - u) \cdot \left(u - \frac{v + b}{a}\right)`,
+    String.raw`\frac{\partial v}{\partial t} = D_v \nabla^2 v + (u - v)`,
   ],
   components: 2,
   params: [

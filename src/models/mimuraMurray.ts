@@ -6,8 +6,8 @@ export const mimuraMurray: RDModel = {
   description: "生態学的な捕食者-被食者系から導かれるチューリング・パターンモデル。被食者 u（活性化因子）と捕食者 v（抑制因子）が反応拡散し、捕食者の拡散が被食者よりはるかに速い（Dv/Du が大きい）ときに拡散誘起不安定性が生じ、生態学的なスポットや迷路状（ラビリンス）パターンが自己組織化する。a で被食者の自己増殖の基礎レベル、b で増殖の密度依存性、d で捕食者の自己抑制を制御し、ratio で捕食者拡散の速さを決める。共存平衡 (u*=5, v*=10) 近傍から微小ノイズで立ち上がる。なお、このハーネスの正規化ラプラシアンでは Du が小さすぎるとチューリング波長が格子分解能を下回り模様が出ないため、既定 Du は格子で解像できる大きさに設定してある。",
   speciesNote: "u (c.r) = 被食者（プレイ、活性化因子）、v (c.g) = 捕食者（プレデター、抑制因子）。標準パラメータでの共存平衡は u*≈5, v*≈10。u が局所的に増えると捕食者 v を呼び寄せるが、v は速く拡散して周囲で u を抑え込むため、空間的にスポット/迷路構造が形成される。表示・ブラシ対象は被食者 u。",
   equations: [
-    "∂u/∂t = Du·∇²u + [ (a + b·u − u²)/c − v ]·u",
-    "∂v/∂t = Dv·∇²v + [ u − (1 + d·v) ]·v,  Dv = Du·ratio",
+    String.raw`\frac{\partial u}{\partial t} = D_u \cdot \nabla^2 u + \left[\frac{a + b \cdot u - u^2}{c} - v\right] \cdot u`,
+    String.raw`\frac{\partial v}{\partial t} = D_v \cdot \nabla^2 v + [u - (1 + d \cdot v)] \cdot v, \quad D_v = D_u \cdot {ratio}`,
   ],
   components: 2,
   resScale: 0.7,

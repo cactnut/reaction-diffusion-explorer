@@ -6,8 +6,8 @@ export const brusselator: RDModel = {
   description: "古典的なブリュッセレーター反応拡散系。活性化因子 u と抑制因子 v が反応し、拡散比によってチューリング不安定性が生じる。A・B のバランスが安定均一状態・スポット・縞・振動の境界を決める。",
   speciesNote: "u (c.r) = 活性化因子で均一定常値は A。v (c.g) = 抑制因子で均一定常値は B/A。拡散比 Dv/Du が大きく、B が 1+A² (この離散系での均一不安定しきい値) のすぐ手前の帯に入るとチューリングパターンが出現する。",
   equations: [
-    "∂u/∂t = Du∇²u + A − (B+1)u + u²v",
-    "∂v/∂t = Dv∇²v + Bu − u²v",
+    String.raw`\frac{\partial u}{\partial t} = D_u \nabla^2 u + A - (B + 1)u + u^2 v`,
+    String.raw`\frac{\partial v}{\partial t} = D_v \nabla^2 v + Bu - u^2 v`,
   ],
   components: 2,
   resScale: 0.5,

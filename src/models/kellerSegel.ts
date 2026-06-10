@@ -6,8 +6,8 @@ export const kellerSegel: RDModel = {
   description: "細胞 u が自ら分泌する誘引物質 v の勾配に向かって移動する走化性モデル。誘引強度 χ が大きいと細胞が一点に集まって密な斑点 (アグリゲーション) を作り、小さいとほぼ均一なまま広がる。素の走化性は反拡散的で密度が無限に爆発するため、体積占有 (volume-filling) で密度が飽和上限 u_sat に近づくとフラックスが止まるようにし、PDE 自体に有限平衡を持たせている。",
   speciesNote: "u (r) = 細胞密度、v (g) = 誘引物質の濃度。細胞は v の勾配を登るように移動し、移動先で v をさらに分泌するため正のフィードバックで凝集する。表示は u (細胞密度) の濃いところを明色にしている。",
   equations: [
-    "∂u/∂t = Dᵤ∇²u − χ∇·(q(u)∇v)   (q(u) = u(1 − u/u_sat))",
-    "∂v/∂t = Dᵥ∇²v + p·u − v   (Dᵥ = Dᵤ·r)",
+    String.raw`\frac{\partial u}{\partial t} = D_u \nabla^2 u - \chi \nabla \cdot (q(u) \nabla v) \quad \left(q(u) = u\left(1 - \frac{u}{u_{sat}}\right)\right)`,
+    String.raw`\frac{\partial v}{\partial t} = D_v \nabla^2 v + p \cdot u - v \quad (D_v = D_u \cdot r)`,
   ],
   components: 2,
   params: [

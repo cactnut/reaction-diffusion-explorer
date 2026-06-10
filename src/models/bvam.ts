@@ -6,8 +6,8 @@ export const bvam: RDModel = {
   description: "Barrio-Varea-Aragón-Maini モデル。動物の体表模様 (毛皮の斑点・縞) を生む 2 成分チューリング系。三次の反応項を持ち、結合係数 C と反応係数 a, b, h を調整することで斑点と縞のあいだを連続的に行き来できる。η は反応の強さ全体を、拡散比 Dᵥ/Dᵤ は模様の細かさを決める。チューリング不安定には均一平衡 (0,0) が反応のみで安定 (b < −1 かつ h > 0) であることが必要で、既定値はその模様生成域に収めてある。",
   speciesNote: "u = c.r (活性因子に相当する第 1 形態素)、v = c.g (第 2 形態素)。均一平衡は (0,0) で、そこから微小ゆらぎを増幅して模様が立ち上がる。チューリング不安定が起こるには (0,0) が反応のみでは安定 (trace = η(1+b) < 0 すなわち b < −1、かつ det = η²(b − a·h) > 0) でなければならず、a = −1 のとき h を正にとる必要がある。表示は v の符号付き値を中心 0 で明暗に割り当てている。Dᵤ は安定性のためシェーダ内に 0.18 で固定し、Dᵥ は拡散比パラメータで与える。",
   equations: [
-    "∂u/∂t = Dᵤ∇²u + η(u + a·v − C·u·v − u·v²)",
-    "∂v/∂t = Dᵥ∇²v + η(b·v + h·u + C·u·v + u·v²)",
+    String.raw`\frac{\partial u}{\partial t} = D_u \nabla^2 u + \eta(u + a \cdot v - C \cdot u \cdot v - u \cdot v^2)`,
+    String.raw`\frac{\partial v}{\partial t} = D_v \nabla^2 v + \eta(b \cdot v + h \cdot u + C \cdot u \cdot v + u \cdot v^2)`,
   ],
   components: 2,
   resScale: 0.6,

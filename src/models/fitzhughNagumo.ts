@@ -6,8 +6,8 @@ export const fitzhughNagumo: RDModel = {
   description: "活性因子 u と回復因子 v からなる2変数の興奮性・振動性モデル。u は三次の非線形項 (u - u³) による速い興奮ダイナミクスを持ち、v はゆっくりとした回復をもたらす。パラメータ次第でスパイラル波、ラビリンス（迷路）模様、振動パターンを生み出す。FitzHugh-Nagumo は神経興奮や心筋の波動伝播のモデルとしても知られる。",
   speciesNote: "2成分系。c.r = u（活性因子・興奮変数、概ね [-2, 2] にクランプ）、c.g = v（回復因子・抑制変数）。ブラシは u (channel 0) に注入し、興奮の核を作る。c.b と c.a は未使用（0.0）。",
   equations: [
-    "∂u/∂t = Du∇²u + u − u³ − v",
-    "∂v/∂t = Dv∇²v + ε(u − b·v − a)",
+    String.raw`\frac{\partial u}{\partial t} = D_u \nabla^2 u + u - u^3 - v`,
+    String.raw`\frac{\partial v}{\partial t} = D_v \nabla^2 v + \varepsilon(u - b \cdot v - a)`,
   ],
   components: 2,
   params: [

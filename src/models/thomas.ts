@@ -6,8 +6,8 @@ export const thomas: RDModel = {
   description: "固定化酵素による基質阻害反応のチューリング・モデル。基質u（酸素・尿酸アナログ）と補基質vが、反応項 ρ·u·v/(1+u+K·u²) を共有して結合する。uは速く拡散しvは遅く（あるいはその逆比で）拡散することでチューリング不安定性が生じ、均一状態から自発的にスポットやストライプが立ち上がる。古典的な定常パターン形成モデル。補基質の緩和率は textbook 値 α=1.5 を定数として埋め込んでいる。",
   speciesNote: "c.r = u（基質：拡散が速い活性化因子側、ブラシで注入する種）。c.g = v（補基質：拡散が遅い／比で大きく拡散する抑制側）。c.b と c.a は未使用（0.0）。補基質の緩和率 α は textbook 値 1.5 をシェーダ内の定数として固定（パラメータ化していない）。均一定常状態は a,b,ρ,K と固定の α=1.5 から定まる不動点で、textbook 値 a=150,b=100,ρ=13,K=0.05 では (u*,v*)≈(37.7,25.2)。",
   equations: [
-    "∂u/∂t = Du·∇²u + a − u − ρ·u·v/(1 + u + K·u²)",
-    "∂v/∂t = Dv·∇²v + α·(b − v) − ρ·u·v/(1 + u + K·u²),  α = 1.5,  Dv = Du·ratio",
+    String.raw`\frac{\partial u}{\partial t} = D_u \cdot \nabla^2 u + a - u - \frac{\rho \cdot u \cdot v}{1 + u + K \cdot u^2}`,
+    String.raw`\frac{\partial v}{\partial t} = D_v \cdot \nabla^2 v + \alpha \cdot (b - v) - \frac{\rho \cdot u \cdot v}{1 + u + K \cdot u^2}, \quad \alpha = 1.5, \quad D_v = D_u \cdot {ratio}`,
   ],
   components: 2,
   resScale: 0.5,

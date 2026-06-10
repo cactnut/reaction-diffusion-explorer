@@ -6,8 +6,8 @@ export const oregonator: RDModel = {
   description: "ベローゾフ・ジャボチンスキー反応のスパイラル波を再現する興奮性媒体モデル。Tyson-Fife の 2 変数還元 (標準形) を使い、活性種 u が自己触媒的に立ち上がり、抑制種 v が遅れて追従することで回転スパイラルや標的波が生まれる。f と ε のバランスが興奮性・振動性の境界を決める。",
   speciesNote: "u = 活性種 (HBrO2、自己触媒で急増する興奮変数)、v = 抑制種/触媒 (Ce⁴⁺、u に遅れて追従する回復変数)。元の 3 変数 FKN 機構は explicit Euler には硬すぎるため、臭化物イオンを断熱消去した標準的な Tyson-Fife の 2 変数還元を用いている。表示は活性種 u の濃いところを明色にしている。",
   equations: [
-    "∂u/∂t = Dᵤ∇²u + (1/ε)[ u(1 − u) − f·v·(u − q)/(u + q) ]",
-    "∂v/∂t = Dᵥ∇²v + (u − v),  Dᵥ = Dᵤ·Dᵣ",
+    String.raw`\frac{\partial u}{\partial t} = D_u \nabla^2 u + \frac{1}{\varepsilon}\left[u(1 - u) - \frac{f \cdot v \cdot (u - q)}{u + q}\right]`,
+    String.raw`\frac{\partial v}{\partial t} = D_v \nabla^2 v + (u - v), \quad D_v = D_u \cdot D_r`,
   ],
   components: 2,
   // 剛性のため dt が小さく 1 フレーム 150 サブステップと重い。拡散係数は据え置きで

@@ -19,7 +19,6 @@
     <header class="header container-app">
       <div class="header__titles">
         <h1 class="header__title">Reaction-Diffusion Explorer</h1>
-        <p class="header__subtitle">パラメータ空間を眺めて、面白い模様が生まれる組み合わせを探す</p>
       </div>
       <div class="segment" id="theme-segment" role="group" aria-label="テーマ"
            data-squircle data-squircle-radius="999" data-squircle-stroke>
@@ -35,18 +34,20 @@
         <!-- マトリックスビュー -->
         <section class="view" id="view-matrix" aria-label="パラメータマトリックス">
           <div class="card view-card" data-squircle data-squircle-radius="12">
-            <div class="matrix">
-              <span class="matrix__axis matrix__axis--y" id="y-axis-label">縦軸</span>
-              <div class="matrix__yticks" id="y-ticks" aria-hidden="true"></div>
-              <div class="matrix__canvas-wrap" id="matrix-wrap">
-                <canvas id="matrix-canvas" aria-label="反応拡散モデルのパラメータマトリックス"></canvas>
-                <div class="matrix__hover" id="matrix-hover" hidden></div>
-                <div class="matrix__tooltip" id="matrix-tooltip" hidden aria-hidden="true"></div>
-              </div>
-              <div class="matrix__xticks" id="x-ticks" aria-hidden="true"></div>
-              <span class="matrix__axis matrix__axis--x" id="x-axis-label">横軸</span>
-            </div>
             <p class="view-card__hint">タイルをクリックすると、そのパラメータで拡大表示します</p>
+            <div class="view-card__canvas">
+              <div class="matrix">
+                <span class="matrix__axis matrix__axis--y" id="y-axis-label">縦軸</span>
+                <div class="matrix__yticks" id="y-ticks" aria-hidden="true"></div>
+                <div class="matrix__canvas-wrap" id="matrix-wrap">
+                  <canvas id="matrix-canvas" aria-label="反応拡散モデルのパラメータマトリックス"></canvas>
+                  <div class="matrix__hover" id="matrix-hover" hidden></div>
+                  <div class="matrix__tooltip" id="matrix-tooltip" hidden aria-hidden="true"></div>
+                </div>
+                <div class="matrix__xticks" id="x-ticks" aria-hidden="true"></div>
+                <span class="matrix__axis matrix__axis--x" id="x-axis-label">横軸</span>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -55,13 +56,15 @@
           <div class="card view-card" data-squircle data-squircle-radius="12">
             <div class="view-card__bar">
               <button type="button" id="back-button" class="button button--ghost"
-                      data-squircle data-squircle-radius="8">← マトリックスへ戻る</button>
+                      data-squircle data-squircle-radius="8">←</button>
               <span class="view-card__params" id="single-params"></span>
             </div>
-            <div class="single__canvas-wrap">
-              <canvas id="single-canvas" aria-label="反応拡散モデルのシミュレーション"></canvas>
-            </div>
             <p class="view-card__hint">キャンバスをドラッグすると化学種 V を描き足せます</p>
+            <div class="view-card__canvas">
+              <div class="single__canvas-wrap">
+                <canvas id="single-canvas" aria-label="反応拡散モデルのシミュレーション"></canvas>
+              </div>
+            </div>
           </div>
         </section>
 

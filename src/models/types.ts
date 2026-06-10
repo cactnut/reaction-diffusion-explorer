@@ -33,7 +33,7 @@ export interface RDModel {
   description: string;
   /** 各成分が何を表すか (日本語) */
   speciesNote: string;
-  /** 支配方程式の人間可読表現 (Unicode、成分ごとに 1 行) */
+  /** 支配方程式 (LaTeX サブセット、成分ごとに 1 行)。texToMathML でネイティブ MathML に変換して描画する */
   equations: string[];
   /** 状態変数の数 (1〜4)。表示・初期化の参考。シェーダは常に vec4 */
   components: number;
