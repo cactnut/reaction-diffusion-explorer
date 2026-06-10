@@ -617,10 +617,16 @@ setView(view, false);
 initSquircle();
 
 // ===== メインループ =====
+// 反応サブサイクル (reactionSubsteps) はシェーダ内のループで回るため、その分だけ
+// テクスチャパス (高価な 9 点フェッチ) の回数を減らす。総反応ステップ数
+// (= 1 フレームで進む時間) は stepsBase のまま保たれる。R は sim.ts と同じ式で導出する。
+const reactionSubsteps = Math.max(1, Math.round(model.reactionSubsteps ?? 1));
+const outerStepsBase = Math.max(1, Math.ceil((model.stepsBase ?? 8) / reactionSubsteps));
+
 function frame() {
   const sim = view === "single" ? singleSim : matrixSim;
   if (sim) {
-    if (!paused) sim.step((model.stepsBase ?? 8) * speed);
+    if (!paused) sim.step(outerStepsBase * speed);
     sim.draw(view === "matrix");
   }
   requestAnimationFrame(frame);

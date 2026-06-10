@@ -32,6 +32,26 @@ function paramPrologue(model: RDModel, xKey: string, yKey: string) {
 
 function simFrag(model: RDModel, xKey: string, yKey: string): { src: string; fixedKeys: string[] } {
   const { fixedKeys, fixedUniforms, decls } = paramPrologue(model, xKey, yKey);
+  // 勾配 gx/gy は走化性など一部のモデルしか使わない。使うモデルだけで計算する。
+  const usesGrad = /\bg[xy]\b/.test(model.updateGlsl);
+  const gradLines = usesGrad
+    ? "\n  vec4 gx = (nE - nW) * 0.5;\n  vec4 gy = (nN - nS) * 0.5;"
+    : "";
+  // 演算子分割: 反応剛性モデルはラプラシアン (高価な近傍フェッチ) を固定したまま
+  // 反応項を R 回サブサイクルする。R=1 は従来どおり 1 回更新するだけ。
+  const R = Math.max(1, Math.round(model.reactionSubsteps ?? 1));
+  const updateBody =
+    R > 1
+      ? `  vec4 rdState = c;
+  for (int rdi = 0; rdi < ${R}; rdi++) {
+    vec4 c = rdState;
+${model.updateGlsl}
+    rdState = next;
+  }
+  outColor = rdState;`
+      : `${model.updateGlsl}
+
+  outColor = next;`;
   const src = /* glsl */ `#version 300 es
 precision highp float;
 uniform sampler2D uState;
@@ -64,26 +84,22 @@ void main() {
   vec4 nSE = stt(wrapT(texel + ivec2( 1, -1), origin, uTileRes));
   vec4 nSW = stt(wrapT(texel + ivec2(-1, -1), origin, uTileRes));
 
-  vec4 lap = -c + 0.2 * (nN + nS + nE + nW) + 0.05 * (nNE + nNW + nSE + nSW);
-  vec4 gx = (nE - nW) * 0.5;
-  vec4 gy = (nN - nS) * 0.5;
+  vec4 lap = -c + 0.2 * (nN + nS + nE + nW) + 0.05 * (nNE + nNW + nSE + nSW);${gradLines}
 
   vec2 gmax = max(vec2(uGrid) - 1.0, vec2(1.0));
   float fx = float(tile.x) / gmax.x;
   float fy = float(tile.y) / gmax.y;
 ${decls}
 
-${model.updateGlsl}
-
-  outColor = next;
+${updateBody}
 }
 `;
   return { src, fixedKeys };
 }
 
-function seedFrag(model: RDModel, xKey: string, yKey: string): { src: string; fixedKeys: string[] } {
-  const { fixedKeys, fixedUniforms, decls } = paramPrologue(model, xKey, yKey);
-  const src = /* glsl */ `#version 300 es
+function seedFrag(model: RDModel, xKey: string, yKey: string): string {
+  const { fixedUniforms, decls } = paramPrologue(model, xKey, yKey);
+  return /* glsl */ `#version 300 es
 precision highp float;
 uniform ivec2 uGrid;
 uniform int uTileRes;
@@ -123,7 +139,6 @@ ${model.seedGlsl}
   outColor = seed;
 }
 `;
-  return { src, fixedKeys };
 }
 
 const BRUSH_FRAG = /* glsl */ `#version 300 es
@@ -292,8 +307,8 @@ export class Simulation {
     this.fixedKeys = sim.fixedKeys;
     const fixedUniforms = sim.fixedKeys.map((k) => `P_${k}`);
     this.pSim = this.compile(sim.src, ["uState", "uGrid", "uTileRes", "uXRange", "uYRange", "uDt", ...fixedUniforms]);
-    const seed = seedFrag(this.model, this.xKey, this.yKey);
-    this.pSeed = this.compile(seed.src, ["uGrid", "uTileRes", "uXRange", "uYRange", "uSeed", ...fixedUniforms]);
+    const seedSrc = seedFrag(this.model, this.xKey, this.yKey);
+    this.pSeed = this.compile(seedSrc, ["uGrid", "uTileRes", "uXRange", "uYRange", "uSeed", ...fixedUniforms]);
   }
 
   private compile(fragSrc: string, uniformNames: string[]): Program {
@@ -405,6 +420,9 @@ export class Simulation {
     const gl = this.gl;
     gl.useProgram(this.pSim.prog);
     gl.uniform1i(this.pSim.u.uState, 0);
+    // uDt は常に「反応 1 サブステップ」の刻み (= model.dt)。reactionSubsteps>1 でも
+    // ここを dt_frame に拡大してはいけない。剛性モデルの反応は線形安定ではなく毎ステップ
+    // clamp で抑えているだけなので、刻みを大きくすると発散する。高速化はパス数削減で行う。
     gl.uniform1f(this.pSim.u.uDt, this.model.dt);
     this.setParamUniforms(this.pSim);
     gl.viewport(0, 0, this.texWidth, this.texHeight);

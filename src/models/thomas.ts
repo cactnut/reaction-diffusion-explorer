@@ -53,6 +53,12 @@ export const thomas: RDModel = {
   defaultYKey: "a",
   dt: 0.0006,
   stepsBase: 150,
+  // 剛性は反応項のみ。拡散は緩い (最悪 Dv=Du·ratio=0.3·80=24) ので演算子分割が効く。
+  // R=10 で dt_frame=0.006、拡散安定 0.006·24·2=0.29<1 を満たす。チューリング模様は
+  // 定常状態に収束するためラプラシアン遅延は過渡だけに効き、最終模様は不変。
+  // テクスチャパスを 150→15/フレームに削減 (×4 で 600→60)。反応式が Oregonator より
+  // 重く R≥25 では ANGLE/Metal で性能が崩れるため R=10 に留める (M1 実測で ×4 60fps)。
+  reactionSubsteps: 10,
   brushChannel: 0,
   brushValue: 120.0,
   updateGlsl: /* glsl */ `
