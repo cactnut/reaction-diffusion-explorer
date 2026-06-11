@@ -15,13 +15,13 @@ export const lengyelEpstein: RDModel = {
     {
       key: "a", label: "供給率 a", symbol: "a",
       min: 6, max: 20, step: 0.1, default: 12,
-      axisEligible: true, axisRange: [8, 18],
+      axisEligible: true, axisRange: [10, 20],
       description: "活性化因子の供給率。均一定常状態 u₀=a/5 を決める。小さいと斑点(スポット)が、大きくすると縞(ストライプ)や逆斑点へと遷移する。パターンの基本スケールと密度を支配する主要軸。",
     },
     {
       key: "b", label: "抑制応答 b", symbol: "b",
       min: 0.1, max: 1, step: 0.01, default: 0.35,
-      axisEligible: true, axisRange: [0.15, 0.9],
+      axisEligible: true, axisRange: [0.1, 0.5],
       description: "抑制因子の生成強度。小さいとチューリング不安定で明瞭なパターンが出る。大きくすると抑制が強まり均一状態が安定化してパターンが消える。aと組み合わせて斑点⇔縞の境界を制御する。",
     },
     {

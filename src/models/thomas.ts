@@ -10,12 +10,15 @@ export const thomas: RDModel = {
     String.raw`\frac{\partial v}{\partial t} = D_v \cdot \nabla^2 v + \alpha \cdot (b - v) - \frac{\rho \cdot u \cdot v}{1 + u + K \cdot u^2}, \quad \alpha = 1.5, \quad D_v = D_u \cdot {ratio}`,
   ],
   components: 2,
-  resScale: 0.5,
+  // Turing 波長が ~2 テクセルと全モデル中で最も短い (Du=0.2 が小さく ratio が高い)。
+  // 0.5 だとタイルに波が詰まりすぎて砂嵐に見えるため、他モデル (0.45〜0.7) より
+  // 低めの 0.35 にしてタイルあたりの波数を減らし、模様を画面上で大きく見せる。
+  resScale: 0.35,
   params: [
     {
       key: "a", label: "基質供給率 a", symbol: "a",
       min: 80, max: 250, step: 1, default: 150,
-      axisEligible: true, axisRange: [110, 200],
+      axisEligible: true, axisRange: [130, 165],
       description: "基質uの一定供給量。均一定常状態の位置を決める主要パラメータ。上げるとuの平衡濃度が高まり、ある範囲ではスポットの数密度やパターンの種類（スポット↔ストライプ↔均一）が切り替わる。極端に上げ下げするとチューリング不安定領域を外れて均一状態に戻る。",
     },
     {
@@ -27,7 +30,7 @@ export const thomas: RDModel = {
     {
       key: "ratio", label: "拡散比 Dv/Du", symbol: "Dv/Du",
       min: 5, max: 80, step: 1, default: 40,
-      axisEligible: true, axisRange: [10, 60],
+      axisEligible: true, axisRange: [15, 200],
       description: "抑制側vと活性側uの拡散係数の比。チューリング不安定性の鍵。およそ30以上で均一状態が不安定化しパターンが出現する。上げるほどパターンの特徴波長が短くなり、スポットが細かく密になる。低いと均一状態のまま。",
     },
     {
@@ -105,6 +108,9 @@ float vs = v0 + 0.04 * v0 * (n2 - 0.5);
 vec4 seed = vec4(max(us, 0.0), max(vs, 0.0), 0.0, 0.0);
 `,
   displayGlsl: /* glsl */ `
-float t = clamp(s.r / 90.0, 0.0, 1.0);
+// u は固定点 (~a/4≈37) 付近で 1.5〜57 ほどに振れる。線形 u/90 だと中間グレー帯
+// (t≈0.4) に潰れて低コントラストなので、実レンジに合わせた smoothstep で黒〜白に
+// 振ってパターンを際立たせる。a を上下に振っても u* は ~a/4 で範囲内に収まる。
+float t = smoothstep(8.0, 56.0, s.r);
 `,
 };

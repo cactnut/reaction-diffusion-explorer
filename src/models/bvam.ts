@@ -21,7 +21,7 @@ export const bvam: RDModel = {
     {
       key: "b", label: "反応係数 b", symbol: "b",
       min: -2, max: -1.05, step: 0.02, default: -1.7,
-      axisEligible: true, axisRange: [-1.9, -1.3],
+      axisEligible: true, axisRange: [-2.4, -1.2],
       description: "v の線形減衰 (負値)。反応のみの安定条件 trace = η(1+b) < 0 を満たすため必ず −1 より小さくとる。−1 に近づけるほど不安定化が強まり模様の振幅・密度が増し、大きく負にすると平坦化して模様が消える。",
     },
     {

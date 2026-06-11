@@ -18,12 +18,12 @@ export const oregonator: RDModel = {
       key: "eps", label: "時間スケール ε", symbol: "ε",
       min: 0.03, max: 0.12, step: 0.005, default: 0.05,
       axisEligible: true, axisRange: [0.04, 0.1],
-      description: "活性種 u の応答の速さ (小さいほど u が速い)。小さくすると興奮性が強まり鋭いスパイラル波になり、大きくすると波が鈍り振動的な挙動へ移る。下限を 0.04 に上げて 1/ε を最大 25 に抑え、explicit Euler の硬さを安全側にしている。",
+      description: "活性種 u の応答の速さ (小さいほど u が速い)。小さくすると興奮性が強まり鋭いスパイラル波になり、大きくすると波が鈍り振動的な挙動へ移る。",
     },
     {
       key: "f", label: "化学量論係数 f", symbol: "f",
       min: 0.3, max: 1.4, step: 0.05, default: 0.6,
-      axisEligible: true, axisRange: [0.45, 0.85],
+      axisEligible: true, axisRange: [0.45, 0.65],
       description: "抑制種 v が u を抑える強さ。小さいと u が立ちっぱなしになり、1 付近で安定スパイラル、大きくすると抑制が勝って波が消えやすくなる (興奮性と静止の境界を制御)。スライダ上限を 1.4 に抑え、最悪ケースの反応項を抑えている。",
     },
     {

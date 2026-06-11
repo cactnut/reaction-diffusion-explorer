@@ -32,7 +32,7 @@ export const fitzhughNagumo: RDModel = {
     {
       key: "a", label: "閾値オフセット a", symbol: "a",
       min: -0.3, max: 0.5, step: 0.01, default: 0.1,
-      axisEligible: true, axisRange: [-0.1, 0.4],
+      axisEligible: true, axisRange: [-0.05, 0.4],
       description: "興奮の閾値を決めるオフセット。小さい（負側）と自発的に興奮しやすく振動的になり、大きくすると静止状態が安定して刺激待ちの興奮性媒質になる。",
     },
     {
