@@ -19,13 +19,13 @@ export const grayScott: RDModel = {
     {
       key: "F", label: "供給速度 feed", symbol: "F",
       min: 0.0, max: 0.1, step: 0.0005, default: 0.037,
-      axisEligible: true, axisRange: [0.01, 0.09],
+      axisEligible: true, axisRange: [0.01, 0.08],
       description: "基質 U を補充する速度。大きいほど V が広がりやすく、模様が密になる。",
     },
     {
       key: "k", label: "除去速度 kill", symbol: "k",
       min: 0.02, max: 0.08, step: 0.0005, default: 0.06,
-      axisEligible: true, axisRange: [0.044, 0.07],
+      axisEligible: true, axisRange: [0.044, 0.065],
       description: "触媒種 V を取り除く速度。大きいほど V が死にやすく、斑点が孤立していく。",
     },
     {
